@@ -40,6 +40,9 @@ argumento têm que ser idênticos nos dois lados.** Mudou um, mude o outro e a t
   um `CPH` falso (por exemplo com `DispatchProxy`) permite rodar o `Execute()` e ver o que ele grava.
 - Existe a variante sem código `Painel: Enviar|Silenciar|Banir <Plataforma>` (sub-ação nativa); o dock usa a da plataforma quando
   existe e a `Painel: Chat` quando não.
+- **As ações são o limite de confiança:** qualquer cliente do WebSocket pode chamá-las, com argumentos que o dock não controla. Valide
+  no C# o que for arriscado (a `Painel: Momentos` só grava `.txt` em pasta local com letra de unidade, sem `..` nem caminho de rede,
+  uma linha de até 300 letras) e espelhe a regra no dock para avisar o usuário (`src/pastaClipes.js`).
 
 ## Conexão e dados
 

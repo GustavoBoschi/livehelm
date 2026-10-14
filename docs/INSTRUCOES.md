@@ -61,9 +61,10 @@ A conta **Bot** é opcional. Ela só serve se você quiser que as mensagens envi
 2. Deixe **Address** em `127.0.0.1` e **Port** em `8080` (os valores padrão).
 3. Ligue **Auto Start**: com ele, o servidor sobe sozinho sempre que o Streamer.bot abre. Se a tela tiver um botão para iniciar o
    servidor, clique nele agora (ou reinicie o Streamer.bot).
-4. **Senha (opcional):** se quiser proteger, ligue **Authentication** e preencha **Password**. Depois você coloca a mesma senha
-   nas configurações do dock. Se ligar **Enforce**, todos os pedidos exigem a senha (o dock se autentica sozinho quando a senha
-   está preenchida nas configurações).
+4. **Senha (recomendada):** ligue **Authentication** e preencha **Password**. Sem senha, qualquer programa do seu computador (e
+   páginas abertas no navegador podem tentar) que consiga conectar no servidor pode pedir as ações do LiveHelm, como banir alguém,
+   enviar mensagem ou gravar a anotação de um momento. Depois você coloca a mesma senha nas configurações do dock. Se ligar
+   **Enforce**, todos os pedidos exigem a senha (o dock se autentica sozinho quando a senha está preenchida nas configurações).
 
 > **Cuidado com o endereço:** `127.0.0.1` só aceita conexões do próprio computador, que é o que você quer. Não troque por
 > `0.0.0.0` a menos que saiba o que está fazendo, porque isso abre o servidor para sua rede (use senha nesse caso).
@@ -154,9 +155,9 @@ Um navegador não grava arquivos no disco, então quem escreve a linha no `.txt`
 |---|---|
 | `linha` | o texto da marcação, por exemplo `Clipe 3 - 00:12:34` |
 | `arquivo` | o nome do arquivo, sem `.txt` (`Clipes - <título da live>`) |
-| `pasta` | a pasta onde gravar (vazia: `Documentos\LiveHelm\Clipes`) |
+| `pasta` | a pasta onde gravar: um caminho local completo com letra de unidade, como `C:\Clipes` (vazia: `Documentos\LiveHelm\Clipes`). A ação recusa caminho de rede (`\\servidor\...`), caminho relativo e `..` |
 
-A ação cria a pasta e o arquivo se faltarem e grava em UTF-8.
+A ação cria a pasta e o arquivo se faltarem e grava em UTF-8. Cada marcação é uma linha só, de até 300 letras.
 
 ### `Painel: Chat`: chat, moderação, enquetes e previsões
 
@@ -251,7 +252,7 @@ Clique na **bolinha de estado** (a verde, amarela ou vermelha, no canto de cima)
 | **Aparência** | Cor de destaque e fundo |
 | **Streamer.bot** | **Endereço** (`ws://127.0.0.1:8080`) e **Senha** (a do passo 2.3, ou vazia). Clique em **Salvar e reconectar** |
 | **OBS** | **Endereço** (`ws://127.0.0.1:4455`) e **Senha** (a do passo 4, ou vazia). **Salvar e testar** mostra o tempo atual da live |
-| **Marcação de momentos** | **Dar título a cada clipe** e a **pasta** dos arquivos (vazia: a pasta `Clipes` ao lado do dock, ou seja, `%LOCALAPPDATA%\LiveHelm\Clipes` no dock instalado) |
+| **Marcação de momentos** | **Dar título a cada clipe** e a **pasta** dos arquivos (vazia: a pasta `Clipes` ao lado do dock, ou seja, `%LOCALAPPDATA%\LiveHelm\Clipes` no dock instalado; se escolher outra, use o caminho completo, como `C:\Clipes`) |
 
 Se você deixou tudo no padrão e sem senha, normalmente não precisa mudar nada além de abrir o Streamer.bot e o OBS.
 
@@ -289,6 +290,7 @@ nas configurações do dock, então prefira a tela de configurações).
 | Momentos: "o OBS não respondeu" | O servidor WebSocket do OBS está desligado ou o endereço está errado (seção 4). Use **Salvar e testar** nas configurações. |
 | Momentos: "o OBS pede senha" | O OBS tem autenticação ligada. Coloque a senha nas configurações do dock. |
 | Momentos: "o OBS não está transmitindo nem gravando" | Não há tempo de live para ler. Comece a transmitir ou a gravar. |
+| Momentos: "A pasta dos clipes precisa ser um caminho completo…" | A pasta escolhida nas configurações não é um caminho local completo. Use algo como `C:\Clipes`, sem `..` e sem caminho de rede. |
 | Momentos: a linha não entra no arquivo | A ação `Painel: Momentos` não existe, não compilou, ou a pasta não pode ser criada. Veja o log do Streamer.bot (pasta `logs`). |
 | Desbanir/liberar não faz nada | A `Painel: Chat` é de uma versão antiga e não tem o verbo `reverter`. Cole [`Painel-Chat.cs`](../acoes-streamerbot/Painel-Chat.cs) de novo. |
 | O dock não aparece no OBS | Veja se o OBS estava fechado ao instalar. Use **Docks > LiveHelm**, ou a instalação manual (seção 5). |

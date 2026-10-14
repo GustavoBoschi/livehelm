@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { ler, gravar } from './armazenamento.js';
 import { lerConfig, pastaPadraoDosClipes } from './configuracoes.js';
+import { pastaDeClipesValida } from './pastaClipes.js';
 import { tempoDoOBS, formatarTempo } from './obs.js';
 import { registrarMomento, temAcaoDeMomentos, NOME_DA_ACAO_DE_MOMENTOS } from './acoes.js';
 
@@ -36,6 +37,12 @@ export default function Momentos({ conectado, nomesDeAcoes }) {
     setMarcando(true);
     setResultado(null);
     const cfg = lerConfig();
+    const pasta = cfg.momentos.pasta.trim() || pastaPadraoDosClipes();
+    if (!pastaDeClipesValida(pasta)) {
+      setResultado({ nivel: 2, texto: 'A pasta dos clipes precisa ser um caminho completo de uma unidade local, como C:\\Clipes (veja as configurações).' });
+      setMarcando(false);
+      return;
+    }
     const nomeAtual = nomeDoArquivo(ler('titulo', ''));
     const tempo = await tempoDoOBS(cfg.obs);
     if (!tempo.ok) {
@@ -46,7 +53,7 @@ export default function Momentos({ conectado, nomesDeAcoes }) {
     const numero = ler(`contador.${nomeAtual}`, 0) + 1;
     const escrito = cfg.momentos.tituloDeClipe ? titulo.trim() : '';
     const linha = `${escrito || `Clipe ${numero}`} - ${formatarTempo(tempo.ms)}`;
-    const erro = await registrarMomento({ linha, arquivo: nomeAtual, pasta: cfg.momentos.pasta.trim() || pastaPadraoDosClipes() });
+    const erro = await registrarMomento({ linha, arquivo: nomeAtual, pasta });
     if (erro) {
       setResultado({ nivel: 2, texto: erro });
     } else {

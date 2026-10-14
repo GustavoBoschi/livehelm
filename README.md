@@ -130,7 +130,7 @@ Marca pontos da live para você achar depois (para clipes, cortes, capítulos).
 - Em **Configurações**, **Dar título a cada clipe** liga um campo de título no painel (`Boss final caiu - 00:40:10`); deixado
   vazio, vale o `Clipe N` de sempre.
 - A numeração e a lista da sessão ficam lembradas por arquivo. O arquivo vai para a pasta `Clipes` ao lado do dock, ou para a
-  pasta que você escolher.
+  pasta que você escolher (um caminho completo de uma unidade local, como `C:\Clipes`).
 
 ### Enquetes e previsões (Twitch)
 
@@ -215,7 +215,11 @@ recurso, o dock deixa o botão desligado ou ignora a plataforma.
   computador (`127.0.0.1`).
 - As senhas que você digita nas configurações ficam salvas, **em texto simples**, no armazenamento do navegador do dock (no seu
   perfil do OBS). Não use a mesma senha de outras contas.
-- Deixe o servidor WebSocket do Streamer.bot em `127.0.0.1`. Se precisar abri-lo para a rede, **use senha**.
+- **Use senha** no servidor WebSocket do Streamer.bot (**Authentication**), mesmo só no seu computador: quem conseguir conectar nele
+  pode pedir as ações do dock (banir, enviar mensagem, gravar a anotação de um momento). Deixe o endereço em `127.0.0.1`; para
+  abri-lo para a rede, a senha é indispensável.
+- As ações validam o que recebem: a `Painel: Momentos`, por exemplo, só grava arquivos `.txt` em pasta local com letra de unidade
+  (sem caminho de rede nem `..`).
 - Evite `?sbsenha=` na URL do dock fora de testes: a URL fica visível nas configurações de docks do OBS.
 - **Banir** pede confirmação no dock. Revise a constante `USAR_BOT` da ação `Painel: Chat` para saber com qual conta (a sua ou a
   do bot) as mensagens e punições saem.
@@ -259,6 +263,7 @@ src/LivePanel.jsx        Título, categoria, atalhos e o resultado da atualizaç
 src/Tags.jsx             Tags da Twitch (ler, excluir, adicionar, aplicar)
 src/tagsLista.js         Regras puras da lista de tags e a leitura da resposta do Streamer.bot (testadas)
 src/Momentos.jsx         Marcação de momentos
+src/pastaClipes.js       Regra da pasta dos clipes (a mesma da ação C#; testada)
 src/Interacoes.jsx       Enquetes e previsões
 src/ChatPanel.jsx        Feed, abas, menu, moderação, busca e caixa de envio
 src/Configuracoes.jsx    Tela de configurações (tema, conexões, momentos)
