@@ -22,7 +22,7 @@ código sem quebrar nada.
   inline (SVG ou `data:`).
 - **Nada sensível no repositório:** `src/config.js` fica com as senhas vazias. Sem caminhos, contas ou endereços pessoais em código,
   comentários ou documentação. A única identificação pessoal permitida é o crédito de autoria (`LICENSE`, seção "Licença e créditos"
-  do README e `author` do `package.json`): não o remova.
+  do README e `author` do `package.json`), inclusive a coautoria do Claude no README e em `contributors`: não os remova.
 
 ## Contrato com o Streamer.bot
 

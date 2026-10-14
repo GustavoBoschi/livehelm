@@ -312,4 +312,6 @@ O LiveHelm é **gratuito**. Você pode usar, modificar e compartilhar, com dois 
 
 Os detalhes estão no arquivo [`LICENSE`](LICENSE).
 
+**Autoria:** Gustavo Boschini Rossetti, com coautoria do [Claude](https://www.anthropic.com/claude), assistente de IA da Anthropic.
+
 O LiveHelm não é afiliado ao OBS Project, ao Streamer.bot, à Twitch, à Kick nem ao YouTube. Construído com [React](https://react.dev) e [Vite](https://vitejs.dev), conversando com o [Streamer.bot](https://streamer.bot) e o [obs-websocket](https://github.com/obsproject/obs-websocket).

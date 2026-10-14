@@ -4,6 +4,9 @@
   "version": "1.0.0",
   "description": "Dock do OBS para controlar a live: título, categoria, tags, momentos, enquetes e chat de Twitch, Kick e YouTube",
   "author": "Gustavo Boschini Rossetti",
+  "contributors": [
+    { "name": "Claude (Anthropic)" }
+  ],
   "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "scripts": {
