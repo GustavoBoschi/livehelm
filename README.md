@@ -1,0 +1,310 @@
+<p align="center">
+  <img src="docs/imagens/dock.png" alt="O LiveHelm dentro do OBS: título, categoria, tags, momentos e chat" width="380">
+</p>
+
+# LiveHelm
+
+**O painel de controle da sua live, dentro do OBS.**
+
+Título e categoria nas três plataformas, tags da Twitch, marcação de momentos, enquetes e previsões, e um chat unificado de
+**Twitch, Kick e YouTube** com moderação, tudo num *dock* do OBS. Sem programa extra aberto, sem plugin para compilar e sem
+nada que possa derrubar o OBS.
+
+O LiveHelm é uma página web de arquivo único (`livehelm.html`) que o OBS abre como dock de navegador. Ela conversa com o
+[**Streamer.bot**](https://streamer.bot), que fala com as plataformas, e com o próprio **OBS** para ler o tempo da live. Tudo roda
+no seu computador: não há servidor, conta, cadastro nem chave de API.
+
+> **Instalou e quer só configurar?** Vá direto para as [**Instruções**](docs/INSTRUCOES.md), com o passo a passo do Streamer.bot,
+> do OBS e do dock.
+
+## Sumário
+
+- [Destaques](#destaques)
+- [Como funciona](#como-funciona)
+- [Começando](#começando)
+- [Recursos](#recursos)
+- [O que cada plataforma suporta](#o-que-cada-plataforma-suporta)
+- [Configuração](#configuração)
+- [Privacidade e segurança](#privacidade-e-segurança)
+- [Limites conhecidos](#limites-conhecidos)
+- [Desenvolvimento](#desenvolvimento)
+- [Contribuindo](#contribuindo)
+- [Licença e créditos](#licença-e-créditos)
+
+## Destaques
+
+- **Uma tela só** para o que você mexe durante a live: título, categoria, tags, momentos, enquetes e chat.
+- **Três plataformas juntas:** Twitch, Kick e YouTube. Ligue ou desligue cada uma no alto; o que você faz vale só para as ligadas.
+- **Confirmação de verdade:** depois de mudar título e categoria, o painel espera a plataforma avisar e mostra o que ela
+  realmente aplicou (amarelo quando ficou diferente do digitado).
+- **Chat com moderação:** apagar, silenciar e banir com um clique, desfazer punições, busca, filtro por usuário, mensagens
+  fixadas e alertas no mesmo feed.
+- **Tags da Twitch que você vê e edita:** o painel lê as tags atuais do canal, e você exclui ou adiciona antes de aplicar.
+- **Marcação de momentos:** um clique anota o tempo da live num arquivo de texto, para você achar os melhores trechos depois.
+- **Instala em dois cliques** (Windows) e **não precisa de nada instalado** além do OBS e do Streamer.bot.
+- **Leve e à prova de erro:** é só uma página; se algo falhar, o OBS continua funcionando.
+- **Gratuito e com código disponível**, em React, com testes e documentação para quem quiser usar, estudar e adaptar.
+
+## Como funciona
+
+```mermaid
+flowchart LR
+    subgraph PC["Seu computador"]
+        D["LiveHelm<br/>(dock dentro do OBS)"]
+        S["Streamer.bot"]
+        O["OBS Studio"]
+    end
+    D <-->|"WebSocket :8080<br/>chat, alertas e ações"| S
+    D -->|"WebSocket :4455<br/>tempo da live"| O
+    S <-->|"APIs das plataformas"| P["Twitch · Kick · YouTube"]
+```
+
+1. **O dock** é a interface. Ele roda dentro do OBS, no navegador embutido, e guarda suas preferências (painéis, tema,
+   atalhos) no armazenamento dele.
+2. **O Streamer.bot** é a ponte. O dock se conecta ao servidor WebSocket dele e **recebe** os eventos (mensagens, seguidores,
+   inscrições, raids, enquetes...) e **pede** coisas executando *ações* (mudar o título, banir, enviar mensagem...). Essas ações
+   são criadas uma vez no Streamer.bot, com nomes fixos (`Painel: Twitch`, `Painel: Chat`...), e o código das que precisam de C#
+   vem pronto neste projeto, na pasta [`acoes-streamerbot/`](acoes-streamerbot).
+3. **O OBS** só entra na marcação de momentos: na hora de marcar, o dock pergunta ao servidor WebSocket do OBS há quanto tempo
+   a live (ou a gravação) está no ar.
+
+Como um navegador não grava arquivos no disco, a anotação dos momentos é escrita pelo Streamer.bot, por uma ação. Todo o resto
+fica no dock.
+
+## Começando
+
+Você precisa do **OBS Studio 28 ou mais novo** e do **Streamer.bot** (testado na versão 1.0.7), no Windows.
+
+1. **Streamer.bot:** entre com a conta de cada plataforma e ligue o servidor WebSocket (`Servers/Clients > WebSocket Server`).
+2. **Ações:** crie no Streamer.bot as ações `Painel: ...` que o dock usa (as de C# são só colar o código da pasta
+   [`acoes-streamerbot/`](acoes-streamerbot)).
+3. **Dock:** feche o OBS e rode o **`Instalar LiveHelm.exe`** (da página de *Releases*, ou gerado com
+   [`npm run instalador`](#desenvolvimento)). Abra o OBS: o dock **LiveHelm** aparece na janela.
+4. **Conferir:** a bolinha no canto de cima do dock fica verde quando tudo está conectado.
+
+O passo a passo completo, com onde achar cada coisa em cada programa, está nas [**Instruções**](docs/INSTRUCOES.md). Quer instalar
+sem o instalador (ou fora do Windows)? As Instruções também explicam o jeito manual, por **Docks > Custom Browser Docks**.
+
+## Recursos
+
+### Barra de cima
+
+Da esquerda para a direita:
+
+- O **d20**, a chave global das plataformas: com todas ligadas ele *brilha* e um clique desliga todas; senão fica apagado e um
+  clique liga todas.
+- **Twitch, Kick e YouTube.** Ligar ou desligar vale para atualizar a live e para enviar mensagens. O pontinho verde diz se o
+  Streamer.bot está conectado àquela plataforma.
+- A **bolinha azul** abre a lista de painéis, para mostrar ou esconder cada um (a escolha fica salva).
+- A **bolinha de estado**: **verde** (Streamer.bot e todas as plataformas ativas conectados), **amarela** (falta alguma plataforma
+  ativa) ou **vermelha** (sem Streamer.bot, ou ele recusou a conexão). Passe o mouse para ver o motivo; clique para abrir as
+  configurações.
+
+### Live: título e categoria
+
+Um campo de título, um de categoria e o botão **Confirmar**, que atualiza todas as plataformas ligadas ao mesmo tempo.
+
+- O resultado aparece **por plataforma**: ✓ quando a plataforma confirmou, e amarelo quando a categoria ou o título ficou
+  diferente do digitado ou a plataforma não confirmou (por exemplo, uma categoria que não existe).
+- **+ Salvar categoria** cria um atalho de um clique. As categorias que as plataformas já confirmaram viram sugestões enquanto
+  você digita.
+- Título e categoria ficam lembrados entre uma live e outra. A seção recolhe para dar espaço ao chat.
+
+### Tags da Twitch
+
+Um painel só para as tags (#), separado de título e categoria porque **só valem na Twitch** (o ícone da Twitch ao lado do nome
+lembra disso).
+
+- Ao abrir, o painel **lê as tags que o canal tem agora** e as mostra como etiquetas. **↻ Ler da Twitch** lê de novo.
+- O **✕** exclui uma etiqueta; o campo **Adicionar tag** inclui novas com Enter (aceita `#rpg #dados` ou separadas por vírgula).
+- As regras da Twitch são aplicadas na hora: sem `#`, espaços ou símbolos, até 25 letras ou números, no máximo 10, sem repetir.
+- **Nada vale até o Aplicar**, que troca todas as tags do canal pela lista final (lista vazia remove todas). Dá para errar e
+  voltar atrás antes de enviar.
+
+### Momentos
+
+Marca pontos da live para você achar depois (para clipes, cortes, capítulos).
+
+- **Marcar momento** lê o tempo da transmissão no OBS (se não estiver transmitindo, o da gravação) e acrescenta uma linha em
+  `Clipes - <título da live>.txt`: `Clipe 1 - 00:12:34`, `Clipe 2 - 00:40:10`...
+- Em **Configurações**, **Dar título a cada clipe** liga um campo de título no painel (`Boss final caiu - 00:40:10`); deixado
+  vazio, vale o `Clipe N` de sempre.
+- A numeração e a lista da sessão ficam lembradas por arquivo. O arquivo vai para a pasta `Clipes` ao lado do dock, ou para a
+  pasta que você escolher.
+
+### Enquetes e previsões (Twitch)
+
+Escolha **Enquete** ou **Previsão**, escreva a pergunta, as opções (separadas por `|`) e a duração, e clique em **Iniciar**.
+A que estiver no ar aparece no alto do painel com os controles: **Encerrar enquete**, **Travar apostas**, **Venceu: opção** e
+**Cancelar previsão**. O painel já valida os limites da Twitch (enquete de 2 a 5 opções, previsão de 2 a 10, opções de até 25 letras).
+Vem desligado: ligue-o pela bolinha azul.
+
+<p align="center">
+  <img src="docs/imagens/enquetes.png" alt="Painel de enquetes e previsões com uma enquete no ar" width="340">
+</p>
+
+### Chat
+
+Mensagens e alertas das três plataformas num feed só, com abas **Tudo**, **Twitch**, **Kick**, **YouTube** e **Alertas**.
+
+<p align="center">
+  <img src="docs/imagens/chat.png" alt="O chat unificado com mensagens e alertas" width="340">
+</p>
+
+- **Leitura:** cor do nome, insígnias e emotes (quando a plataforma os entrega como imagem), marca de **primeira mensagem** e
+  mensagens apagadas ou de quem foi punido **riscadas**. O feed guarda as últimas 400 linhas.
+- **Alertas** no mesmo feed: seguidores, inscrições (novas, renovações e presentes), Bits, resgates de pontos, raids, hype train,
+  Hype Chat, Super Chat e Super Sticker, membros do YouTube, enquetes e previsões e o aviso de anúncio que vai entrar.
+- **Moderação:** passando o mouse numa mensagem aparecem **Banir** (com confirmação), **Silenciar 5 min** e **Apagar** (não existe
+  no YouTube), mais o **⋮** com todas as opções. O botão direito abre o mesmo menu: Mencionar, Copiar mensagem, Apagar,
+  Silenciar 1 ou 10 minutos, Banir, Fixar e Ver só este usuário.
+- **Enviar mensagens:** a caixa de baixo envia para as plataformas ligadas (ou só para a da aba aberta). Aceita comandos:
+  `/ban nome`, `/timeout nome segundos` (10 min se não disser o tempo) e `/limpar` (só Twitch).
+- **Busca** (lupa ou `Ctrl+F`): filtra por nome ou texto, sem diferenciar maiúsculas nem acentos. **Ver só este usuário** mostra só as
+  mensagens dele, com um chip para soltar. `Esc` ou **Fechar** limpa tudo.
+- **Fixar mensagem:** até 3 ficam num quadro no alto do chat, só na sessão.
+- **Silenciados e banidos** (botão ⊘ ao lado da lupa, com o número): a lista da sessão, com o que você fez e o que as plataformas
+  avisaram, com **Desbanir** ou **Liberar** (Twitch e Kick).
+
+### Configurações e tema
+
+Clique na bolinha de estado.
+
+<p align="center">
+  <img src="docs/imagens/configuracoes.png" alt="Tela de configurações do LiveHelm" width="340">
+</p>
+
+- **Aparência:** 7 cores de destaque e 5 fundos (Grafite, Preto, Azul-noite, Vinho e Floresta). A mudança é na hora.
+- **Streamer.bot:** endereço e senha do servidor WebSocket, com **Salvar e reconectar**.
+- **OBS:** endereço e senha do servidor WebSocket do OBS, com **Salvar e testar**, que mostra o tempo atual da live.
+- **Marcação de momentos:** título de clipe e pasta dos arquivos.
+
+O dock é pensado para ficar **estreito**: ele aguenta ser a coluna ao lado do preview do OBS, com o chat ocupando o que sobrar.
+
+## O que cada plataforma suporta
+
+| Recurso | Twitch | Kick | YouTube |
+|---|:---:|:---:|:---:|
+| Ler o chat e receber alertas | ✓ | ✓ | ✓ |
+| Enviar mensagens | ✓ | ✓ | ✓ |
+| Título da live | ✓ | ✓ | ✓ |
+| Categoria | ✓ | ✓ | — |
+| Tags (ler e editar) | ✓ | — | — |
+| Apagar mensagem | ✓ | ✓ | — |
+| Silenciar e banir | ✓ | ✓ | ✓ |
+| Desfazer silêncio e banimento | ✓ | ✓ | — |
+| Limpar o chat (`/limpar`) | ✓ | — | — |
+| Criar e controlar enquetes e previsões | ✓ | — | — |
+
+Os "—" são limites das plataformas ou do Streamer.bot 1.0.7, não do LiveHelm: onde a plataforma ou o Streamer.bot não oferece o
+recurso, o dock deixa o botão desligado ou ignora a plataforma.
+
+## Configuração
+
+- **Pela tela de configurações** (bolinha de estado): endereço e senha do Streamer.bot e do OBS, tema e momentos. Tudo fica
+  guardado no armazenamento do navegador do dock, dentro do OBS.
+- **Valores de partida:** [`src/config.js`](src/config.js) tem o endereço e a senha padrão do Streamer.bot (`ws://127.0.0.1:8080`) e do
+  OBS (`ws://127.0.0.1:4455`). As senhas vêm **vazias**. Se você gerar o seu próprio build, não coloque senhas reais no arquivo
+  se for publicá-lo em algum lugar.
+- **Pela URL do dock**, para testes: `?streamerbot=ws://IP:PORTA` e `?sbsenha=SENHA` valem no lugar do que está salvo.
+- **Streamer.bot em outro computador:** veja as [Instruções](docs/INSTRUCOES.md#streamerbot-em-outro-computador).
+
+## Privacidade e segurança
+
+- O LiveHelm **não envia nada para a internet**. Ele conversa só com o Streamer.bot e o OBS, que normalmente estão no seu
+  computador (`127.0.0.1`).
+- As senhas que você digita nas configurações ficam salvas, **em texto simples**, no armazenamento do navegador do dock (no seu
+  perfil do OBS). Não use a mesma senha de outras contas.
+- Deixe o servidor WebSocket do Streamer.bot em `127.0.0.1`. Se precisar abri-lo para a rede, **use senha**.
+- Evite `?sbsenha=` na URL do dock fora de testes: a URL fica visível nas configurações de docks do OBS.
+- **Banir** pede confirmação no dock. Revise a constante `USAR_BOT` da ação `Painel: Chat` para saber com qual conta (a sua ou a
+  do bot) as mensagens e punições saem.
+
+## Limites conhecidos
+
+- **Streamer.bot 1.0.7 e OBS 32** são as versões em que o projeto foi testado. Outras podem funcionar, mas não foram conferidas.
+- Dos eventos do Streamer.bot, foram conferidos com dados reais as mensagens da Twitch e da Kick e o seguidor da Twitch. Os demais
+  alertas (Kick, YouTube, subs, raids, hype train...) seguem a documentação e são lidos de forma tolerante: se um campo não vier, o
+  texto fica sem aquele detalhe. Se algum alerta aparecer errado ou não aparecer, abra uma *issue* com o evento do log do Streamer.bot.
+- O dock não mostra avatares, e emotes de terceiros (7TV, BetterTTV, FrankerFaceZ) não são carregados: só os que a plataforma
+  entrega no evento.
+- O instalador automático é só para **Windows** (o Streamer.bot também roda só nele). O dock em si é uma página e funciona em qualquer
+  OBS pelo jeito manual.
+- O navegador embutido do OBS pode se comportar diferente do Chrome em detalhes: confira, por exemplo, se **Copiar mensagem**
+  funciona no seu OBS.
+
+## Desenvolvimento
+
+Precisa do **Node.js 18 ou mais novo**. Para gerar o instalador, do **.NET SDK** (só para compilar; o `.exe` pronto roda com o .NET
+Framework 4.8, que já vem no Windows 10/11).
+
+```bash
+npm install
+npm run dev          # http://localhost:5173/livehelm.html, com hot-reload
+npm test             # testes das regras puras (node --test, sem dependências)
+npm run build        # gera dist/livehelm.html, o arquivo único que o OBS abre
+npm run instalador   # build + "Instalar LiveHelm.exe" (com o dock dentro), na raiz do projeto
+```
+
+`npm run dev` precisa do Streamer.bot aberto para ter dados; para testar sem ele, dá para apontar o dock para um servidor
+WebSocket de mentira com `?streamerbot=ws://127.0.0.1:PORTA`.
+
+### Estrutura
+
+```
+livehelm.html            Entrada do Vite
+src/main.jsx             Monta o App (sem React.StrictMode: ele abriria a conexão duas vezes)
+src/App.jsx              Barra de cima (plataformas, estado) e a lista de painéis
+src/LivePanel.jsx        Título, categoria, atalhos e o resultado da atualização
+src/Tags.jsx             Tags da Twitch (ler, excluir, adicionar, aplicar)
+src/tagsLista.js         Regras puras da lista de tags e a leitura da resposta do Streamer.bot (testadas)
+src/Momentos.jsx         Marcação de momentos
+src/Interacoes.jsx       Enquetes e previsões
+src/ChatPanel.jsx        Feed, abas, menu, moderação, busca e caixa de envio
+src/Configuracoes.jsx    Tela de configurações (tema, conexões, momentos)
+src/acoes.js             Pedidos de ações ao Streamer.bot (os nomes e argumentos que as ações C# leem)
+src/streamerbot.js       Conexão WebSocket (senha, reconexão) e conversão dos eventos em tipos do dock
+src/obs.js               Tempo da live pelo obs-websocket v5
+src/configuracoes.js     Configuração salva e tema
+src/config.js            Endereços e senhas de partida
+src/punicoes.js, texto.js, plataformas.js, armazenamento.js, Icones.jsx, Listas.jsx, style.css
+acoes-streamerbot/       Código C# das ações (para colar no Streamer.bot)
+instalador/              Instalador (C#, .NET Framework 4.8): leva o dock dentro e o registra no OBS
+tests/                   Testes (node --test)
+docs/INSTRUCOES.md       Passo a passo de instalação e configuração
+```
+
+### Como estender
+
+- **Novo painel:** crie o componente em `src/`, registre em `PAINEIS` e no estado `paineis` do `App.jsx` (a chave de visibilidade) e
+  renderize-o ali. Guarde preferências com `ler`/`gravar` de `armazenamento.js` (prefixo `livehelm.`).
+- **Nova ação do Streamer.bot:** escreva o C# em `acoes-streamerbot/`, adicione o pedido em `acoes.js` com **os mesmos nomes de
+  argumentos** do C# e documente a ação na tabela de [`docs/INSTRUCOES.md`](docs/INSTRUCOES.md). Coloque a lógica que não depende de
+  rede nem de React em módulos puros (como `tagsLista.js`) e teste em `tests/`.
+- **Novo alerta ou evento:** acrescente o evento em `EVENTOS_ASSINADOS` e a conversão em `ALERTAS` (`src/streamerbot.js`), e o rótulo
+  em `ROTULO_DO_ALERTA` (`ChatPanel.jsx`).
+- **Nova opção de configuração:** é uma seção nova em `configuracoes.js` (o padrão vale seção por seção) e um bloco em
+  `Configuracoes.jsx`.
+
+Mais regras para quem mexe no código estão no [`CLAUDE.md`](CLAUDE.md) (que também orienta assistentes de código).
+
+## Contribuindo
+
+Contribuições são bem-vindas: correções, novos recursos, testes e melhorias nas Instruções.
+
+1. Abra uma *issue* descrevendo o problema ou a ideia (para bugs, diga as versões do OBS e do Streamer.bot e, se puder, o trecho
+   relevante do log do Streamer.bot).
+2. Faça o *fork*, crie uma branch e mexa seguindo as regras do [`CLAUDE.md`](CLAUDE.md).
+3. Rode `npm test` e `npm run build` antes de abrir o *pull request*.
+4. Se mudou o comportamento, atualize este README e as [Instruções](docs/INSTRUCOES.md) na mesma contribuição.
+
+## Licença e créditos
+
+O LiveHelm é **gratuito**. Você pode usar, modificar e compartilhar, com dois pedidos:
+
+- **Não venda** o LiveHelm, nem versões dele com pequenas mudanças.
+- **Dê os créditos a Gustavo Boschini Rossetti**, o autor original, e deixe o link do repositório original em versões modificadas.
+
+Os detalhes estão no arquivo [`LICENSE`](LICENSE).
+
+O LiveHelm não é afiliado ao OBS Project, ao Streamer.bot, à Twitch, à Kick nem ao YouTube. Construído com [React](https://react.dev) e [Vite](https://vitejs.dev), conversando com o [Streamer.bot](https://streamer.bot) e o [obs-websocket](https://github.com/obsproject/obs-websocket).

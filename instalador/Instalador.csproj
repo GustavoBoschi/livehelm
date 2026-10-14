@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Instalador do LiveHelm: programa em .NET Framework 4.8 (já vem no Windows 10/11) com o dock dentro, que registra o dock no OBS. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Instalar LiveHelm</AssemblyName>
+    <RootNamespace>InstaladorLiveHelm</RootNamespace>
+    <ApplicationIcon>icone.ico</ApplicationIcon>
+    <Version>1.0.0</Version>
+    <DebugType>none</DebugType>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Web.Extensions" />
+    <!-- O arquivo do dock (gerado por `npm run build`) vai dentro do .exe. -->
+    <EmbeddedResource Include="..\dist\livehelm.html" LogicalName="livehelm.html" />
+  </ItemGroup>
+  <!-- O .exe pronto fica na raiz do projeto, ao lado do README. -->
+  <Target Name="CopiarExe" AfterTargets="Build">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MSBuildProjectDirectory)\.." />
+  </Target>
+</Project>

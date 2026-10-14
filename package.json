@@ -1,0 +1,24 @@
+{
+  "name": "livehelm",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Dock do OBS para controlar a live: título, categoria, tags, momentos, enquetes e chat de Twitch, Kick e YouTube",
+  "author": "Gustavo Boschini Rossetti",
+  "license": "SEE LICENSE IN LICENSE",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "node --test \"tests/*.test.js\"",
+    "instalador": "vite build && dotnet build instalador/Instalador.csproj -c Release"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.11",
+    "vite-plugin-singlefile": "^2.0.3"
+  }
+}

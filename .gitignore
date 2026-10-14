@@ -1,0 +1,7 @@
+node_modules
+dist
+instalador/bin
+instalador/obj
+Instalar LiveHelm.exe
+*.livehelm.bak
+.DS_Store

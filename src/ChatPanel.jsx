@@ -1,0 +1,454 @@
+// Chat e alertas das três plataformas num feed só, com moderação (apagar, silenciar, banir), caixa de envio e os extras:
+// busca e filtro por usuário, mensagens fixadas e lista de silenciados e banidos (com desfazer). Os eventos
+// vêm do Streamer.bot (streamerbot.js) e as ações saem pela ação `Painel: Chat` (acoes.js). Mensagens apagadas ou de quem
+// foi punido ficam riscadas; o feed guarda no máximo MAX_ITENS linhas.
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { assinarStreamerbot } from './streamerbot.js';
+import { plataformaDe } from './plataformas.js';
+import { executarChat, NOME_DA_PLATAFORMA, PLATAFORMAS_DO_DOCK } from './acoes.js';
+import { IconePlataforma, Traco } from './Icones.jsx';
+import { PopupPunicoes } from './Listas.jsx';
+import { registrar } from './punicoes.js';
+import { copiarTexto, corLegivel, duracao, hora, partesDaMensagem, simplificar } from './texto.js';
+
+const MAX_ITENS = 400;
+const MAX_FIXADAS = 3;
+const STATUS_MS = 9000;
+const PERTO_DO_FIM_PX = 24;   // até essa distância do fim da lista ela segue as mensagens novas
+const SILENCIO_RAPIDO_S = 300; // o silêncio do botão da linha
+const COMANDOS = 'Comandos: /ban nome · /timeout nome segundos · /limpar (só Twitch)';
+
+const ABAS = [
+  { id: 'tudo', dica: 'Tudo: mostra todas as plataformas e envia para as ativas no alto', icone: 'globo' },
+  { id: 'twitch', dica: 'Só a Twitch: mostra e envia só para ela' },
+  { id: 'kick', dica: 'Só a Kick: mostra e envia só para ela' },
+  { id: 'youtube', dica: 'Só o YouTube: mostra e envia só para ele' },
+  { id: 'alertas', dica: 'Alertas de todas as plataformas', texto: 'Alertas' },
+];
+
+// Comandos da caixa: devolve { verbo, args, plataformas } (plataformas que aceitam) ou { erro }.
+function interpretarComando(texto) {
+  const partes = texto.slice(1).split(/\s+/).filter(Boolean);
+  const palavra = (partes[0] || '').toLowerCase();
+  const nome = (partes[1] || '').replace(/^@/, '');
+  switch (palavra) {
+    case 'ban':
+    case 'banir':
+      return nome ? { verbo: 'banir', args: { usuario: nome }, plataformas: PLATAFORMAS_DO_DOCK } : { erro: 'Use /ban nome' };
+    case 'timeout':
+    case 'silenciar': {
+      if (!nome) return { erro: 'Use /timeout nome segundos' };
+      const s = parseInt(partes[2], 10);
+      return { verbo: 'silenciar', args: { usuario: nome, segundos: s > 0 ? s : 600 }, plataformas: PLATAFORMAS_DO_DOCK };
+    }
+    case 'limpar':
+    case 'clear':
+      return { verbo: 'limpar', args: {}, plataformas: ['twitch'] };
+    default:
+      return { erro: 'Comando desconhecido. ' + COMANDOS };
+  }
+}
+
+const ROTULO_DO_ALERTA = {
+  new_follower: 'Seguidor', new_subscriber: 'Sub', resub: 'Resub', subscription_gift: 'Sub de presente', sponsorship: 'Membro',
+  membermilestone: 'Membro', giftpurchase: 'Presente', giftredemption: 'Presente', reward: 'Resgate', cheer: 'Bits', gift: 'Presente',
+  jeweldonation: 'Joias', hype_chat: 'Hype Chat', superchat: 'Superchat', supersticker: 'Super Sticker', raid: 'Raid',
+  hype_train: 'Hype train', poll: 'Votação', prediction: 'Previsão', upcoming_ad: 'Anúncio',
+};
+
+const mesmoUsuario = (item, nome, plataforma) => item.tipo === 'chat' && item.plataforma === plataforma && item.nome.toLowerCase() === String(nome).toLowerCase();
+const passaNaAba = (item, aba) => (aba === 'tudo' ? true : aba === 'alertas' ? item.tipo === 'alerta' : item.tipo === 'chat' && item.plataforma === aba);
+
+// memo: uma linha só refaz quando o seu item muda (as atualizações mantêm a identidade das demais).
+const Linha = memo(function Linha({ item, aoMenu, aoRapida }) {
+  const plat = plataformaDe(item.plataforma);
+  if (item.tipo === 'alerta') {
+    return (
+      <div className="linha linha-alerta" style={{ '--cor-plataforma': plat.cor }}>
+        <span className="hora">{item.hora}</span>
+        <span className="marca-plataforma"><IconePlataforma id={item.plataforma} /></span>
+        <div className="conteudo">
+          {item.rotulo && <span className="alerta-rotulo">{item.rotulo}</span>}
+          <b>{item.nome}</b>
+          {item.detalhe && <span className="alerta-detalhe">{item.detalhe}</span>}
+        </div>
+      </div>
+    );
+  }
+  const insignias = (item.insignias || []).filter(b => b && b.src && /^https:\/\//i.test(b.src));
+  return (
+    <div className={`linha${item.apagada ? ' linha-apagada' : ''}${item.primeira ? ' linha-primeira' : ''}`} style={{ '--cor-plataforma': plat.cor }}
+         onContextMenu={e => { e.preventDefault(); aoMenu(e, item); }}>
+      <span className="hora">{item.hora}</span>
+      <span className="marca-plataforma"><IconePlataforma id={item.plataforma} /></span>
+      <div className="conteudo">
+        {insignias.map((b, i) => <img key={i} className="insignia" src={b.src} alt="" />)}
+        <b className="nome" style={{ color: corLegivel(item.cor) }}>{item.nome}</b>
+        {item.primeira && <span className="etiqueta-primeira">primeira mensagem</span>}
+        <span className="dois-pontos">: </span>
+        <span className="texto">
+          {partesDaMensagem(item.html).map((p, i) => (p.emote ? <img key={i} className="emote" src={p.emote} alt={p.alt} /> : <span key={i}>{p.texto}</span>))}
+        </span>
+      </div>
+      <div className="rapidas">
+        <button type="button" title="Banir" onClick={() => aoRapida('banir', item)}><Traco nome="banir" /></button>
+        <button type="button" title="Silenciar 5 min" onClick={() => aoRapida('silenciar', item)}><Traco nome="tempo" /></button>
+        {item.plataforma !== 'youtube' && <button type="button" title="Apagar mensagem" onClick={() => aoRapida('apagar', item)}><Traco nome="lixeira" /></button>}
+        <button type="button" title="Mais opções" onClick={e => aoMenu(e, item)}><Traco nome="mais" /></button>
+      </div>
+    </div>
+  );
+});
+
+export default function ChatPanel({ ativas, conectado }) {
+  const [itens, setItens] = useState([]);
+  const [filtro, setFiltro] = useState('tudo');
+  const [novas, setNovas] = useState(0);
+  const [texto, setTexto] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [status, setStatus] = useState(null);       // { texto, erro }
+  const [menu, setMenu] = useState(null);           // { item, x, y }
+  const [confirmacao, setConfirmacao] = useState(null); // { texto, aoConfirmar }
+  const [busca, setBusca] = useState('');
+  const [barraAberta, setBarraAberta] = useState(false);
+  const [usuarioFiltro, setUsuarioFiltro] = useState(null); // { plataforma, nome (minúsculo), exibir }
+  const [fixadas, setFixadas] = useState([]);
+  const [punicoes, setPunicoes] = useState([]);
+  const [popupAberto, setPopupAberto] = useState(false);
+  const [agora, setAgora] = useState(() => Date.now()); // relê quem já saiu do silêncio quando o popup abre
+  const lista = useRef(null);
+  const seguindo = useRef(true);
+  const itensRef = useRef(itens);
+  const passaRef = useRef(null);
+  const temporizadorStatus = useRef(null);
+  const primeirasPendentes = useRef(new Set()); // ids de primeira mensagem cujo aviso chegou antes da mensagem
+  const contador = useRef(0);
+  itensRef.current = itens;
+
+  const termo = simplificar(busca.trim());
+  const passaNaBusca = useCallback(item => {
+    if (usuarioFiltro && !(item.plataforma === usuarioFiltro.plataforma && String(item.nome).toLowerCase() === usuarioFiltro.nome)) return false;
+    if (!termo) return true;
+    return simplificar(item.tipo === 'alerta' ? `${item.rotulo} ${item.nome} ${item.detalhe}` : `${item.nome} ${item.texto}`).includes(termo);
+  }, [usuarioFiltro, termo]);
+  passaRef.current = item => passaNaAba(item, filtro) && passaNaBusca(item);
+
+  const avisar = useCallback((t, erro = true) => {
+    setStatus({ texto: t, erro });
+    clearTimeout(temporizadorStatus.current);
+    temporizadorStatus.current = setTimeout(() => setStatus(null), STATUS_MS);
+  }, []);
+
+  // Anota um silêncio ou banimento (feito pelo dock ou avisado pela plataforma).
+  const registrarPunicao = useCallback(nova => {
+    const achaUsuario = (plataforma, nome) => {
+      const ultimo = [...itensRef.current].reverse().find(i => mesmoUsuario(i, nome, plataforma));
+      return ultimo ? { login: ultimo.login, userId: ultimo.userId } : null;
+    };
+    setPunicoes(l => registrar(l, nova, Date.now(), achaUsuario));
+  }, []);
+
+  // ---- Eventos do Streamer.bot ----
+
+  useEffect(() => {
+    const acrescenta = (anteriores, novos) => [...anteriores, ...novos].slice(-MAX_ITENS);
+    const contaNovas = novos => {
+      if (seguindo.current) return;
+      const n = novos.filter(i => passaRef.current(i)).length;
+      if (n) setNovas(v => v + n);
+    };
+    const alertaDaPlataforma = (plataforma, nome, rotulo, detalhe = '') => ({
+      uid: ++contador.current, tipo: 'alerta', plataforma, nome, rotulo, detalhe, hora: hora(),
+    });
+
+    return assinarStreamerbot(ev => {
+      switch (ev.tipo) {
+        case 'chat': {
+          const m = ev.mensagem;
+          const primeira = primeirasPendentes.current.delete(String(m.id));
+          const item = {
+            uid: ++contador.current, tipo: 'chat', plataforma: m.type, msgId: m.id, userId: m.userid, login: m.username, nome: m.chatname,
+            cor: m.nameColor, html: m.chatmessage, texto: m.chattexto || '', insignias: m.chatbadges || [], hora: hora(), apagada: false, primeira,
+          };
+          setItens(a => acrescenta(a, [item]));
+          contaNovas([item]);
+          break;
+        }
+        case 'alerta': {
+          const a = ev.alerta;
+          const rotulo = a.rotulo || ROTULO_DO_ALERTA[a.event] || '';
+          const nome = a.principal || a.chatname;
+          const detalhe = [a.destaque, a.detalhe].filter(Boolean).join(' · ');
+          const item = alertaDaPlataforma(a.type, nome, rotulo, detalhe);
+          setItens(l => acrescenta(l, [item]));
+          contaNovas([item]);
+          break;
+        }
+        case 'apagar':
+          setItens(l => l.map(i => {
+            const alvo = ev.id !== undefined ? i.tipo === 'chat' && String(i.msgId) === String(ev.id) : mesmoUsuario(i, ev.chatname, ev.plataforma);
+            return alvo && !i.apagada ? { ...i, apagada: true } : i;
+          }));
+          break;
+        case 'apagarUsuario': {
+          const banido = ev.punicao === 'banido';
+          const item = alertaDaPlataforma(ev.plataforma, ev.chatname, banido ? 'Banido' : 'Silenciado', ev.segundos ? duracao(ev.segundos) : '');
+          setItens(l => acrescenta(l.map(i => (mesmoUsuario(i, ev.chatname, ev.plataforma) && !i.apagada ? { ...i, apagada: true } : i)), [item]));
+          contaNovas([item]);
+          registrarPunicao({ plataforma: ev.plataforma, nome: ev.chatname, banido, segundos: ev.segundos || 0, login: ev.login, userId: ev.userid });
+          break;
+        }
+        case 'limpar': {
+          const item = alertaDaPlataforma(ev.plataforma, '', 'Chat limpo');
+          setItens(l => acrescenta(l.map(i => (i.tipo === 'chat' && (!ev.plataforma || i.plataforma === ev.plataforma) && !i.apagada ? { ...i, apagada: true } : i)), [item]));
+          break;
+        }
+        case 'primeiraMensagem': {
+          // O aviso pode chegar antes da mensagem: o id fica guardado (até 50) pra quando ela chegar.
+          const id = String(ev.id);
+          primeirasPendentes.current.add(id);
+          if (primeirasPendentes.current.size > 50) primeirasPendentes.current.delete(primeirasPendentes.current.values().next().value);
+          setItens(l => l.map(i => (i.tipo === 'chat' && String(i.msgId) === id ? { ...i, primeira: true } : i)));
+          break;
+        }
+        default:
+      }
+    });
+  }, [registrarPunicao]);
+
+  // ---- Rolagem ----
+
+  const visiveis = useMemo(() => itens.filter(i => passaNaAba(i, filtro) && passaNaBusca(i)), [itens, filtro, passaNaBusca]);
+
+  useLayoutEffect(() => {
+    const el = lista.current;
+    if (el && seguindo.current) el.scrollTop = el.scrollHeight;
+  }, [visiveis, filtro]);
+
+  function aoRolar() {
+    const el = lista.current;
+    seguindo.current = el.scrollHeight - el.scrollTop - el.clientHeight <= PERTO_DO_FIM_PX;
+    if (seguindo.current) setNovas(0);
+  }
+  function irParaOFim() {
+    seguindo.current = true;
+    setNovas(0);
+    const el = lista.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }
+  // Clicar de novo na aba que já está ativa (uma plataforma ou Alertas) volta para Tudo.
+  function trocarFiltro(id) {
+    setFiltro(atual => (id === atual ? 'tudo' : id));
+    seguindo.current = true;
+    setNovas(0);
+  }
+
+  // ---- Busca e filtro por usuário ----
+
+  const abrirBusca = useCallback(() => {
+    setBarraAberta(true);
+    setTimeout(() => { const c = document.getElementById('campo-busca'); if (c) { c.focus(); c.select(); } }, 0);
+  }, []);
+  function fecharBusca() {
+    setBusca('');
+    setUsuarioFiltro(null);
+    setBarraAberta(false);
+    seguindo.current = true;
+  }
+  function verSoEsteUsuario(item) {
+    setMenu(null);
+    setUsuarioFiltro({ plataforma: item.plataforma, nome: String(item.nome).toLowerCase(), exibir: item.nome });
+    setBarraAberta(true);
+    seguindo.current = true;
+  }
+  useEffect(() => {
+    const tecla = e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') { e.preventDefault(); abrirBusca(); } };
+    window.addEventListener('keydown', tecla);
+    return () => window.removeEventListener('keydown', tecla);
+  }, [abrirBusca]);
+
+  // ---- Fixadas ----
+
+  function fixar(item) {
+    setMenu(null);
+    setFixadas(l => (l.some(f => f.plataforma === item.plataforma && f.nome === item.nome && f.texto === item.texto)
+      ? l : [...l, { uid: ++contador.current, plataforma: item.plataforma, nome: item.nome, texto: item.texto }].slice(-MAX_FIXADAS)));
+  }
+
+  // ---- Moderação ----
+
+  async function moderar(verbo, item, segundos = 0) {
+    const infinitivo = { apagar: 'apagar', silenciar: 'silenciar', banir: 'banir' }[verbo];
+    const erro = await executarChat(verbo, { plataforma: item.plataforma, usuario: item.login || item.nome, usuarioId: item.userId, mensagemId: item.msgId, segundos });
+    if (erro) { avisar(`Não consegui ${infinitivo}: ${erro}`); return; }
+    if (verbo === 'apagar') setItens(l => l.map(i => (i.uid === item.uid ? { ...i, apagada: true } : i)));
+    else registrarPunicao({ plataforma: item.plataforma, nome: item.nome, banido: verbo === 'banir', segundos, login: item.login, userId: item.userId });
+  }
+  // Banir pede confirmação dentro da página (não dá pra contar com a janela de confirmar do navegador no OBS).
+  function pedirBanir(item) {
+    setMenu(null);
+    setConfirmacao({ texto: `Banir ${item.nome} (${NOME_DA_PLATAFORMA[item.plataforma] || item.plataforma})?`, aoConfirmar: () => moderar('banir', item) });
+  }
+  function acaoRapida(verbo, item) {
+    if (verbo === 'banir') pedirBanir(item);
+    else if (verbo === 'silenciar') moderar('silenciar', item, SILENCIO_RAPIDO_S);
+    else moderar('apagar', item);
+  }
+
+  // Pede ao Streamer.bot para liberar o usuário (verbo reverter da ação Painel: Chat). A ação responde ok mesmo com código
+  // antigo, então o item fica na lista marcado com a hora do pedido, e dá pra tentar de novo.
+  async function reverter(p) {
+    const erro = await executarChat('reverter', { plataforma: p.plataforma, usuario: p.login || p.nome, usuarioId: p.userId || '' });
+    if (erro) { avisar(`Não consegui reverter: ${erro}`); return; }
+    setPunicoes(l => l.map(x => (x.id === p.id ? { ...x, pedido: Date.now() } : x)));
+    avisar(`Pedi ao Streamer.bot para liberar ${p.nome}. Se nada mudar, atualize o código da ação Painel: Chat (README.md).`, false);
+  }
+  function alternarPopup(e) {
+    e.stopPropagation();
+    setAgora(Date.now());
+    setPopupAberto(a => !a);
+  }
+
+  const abrirMenu = useCallback((e, item) => {
+    e.stopPropagation();
+    setPopupAberto(false);
+    setMenu({ item, x: Math.min(e.clientX, window.innerWidth - 190), y: Math.min(e.clientY, window.innerHeight - 290) });
+  }, []);
+  useEffect(() => {
+    if (!menu && !popupAberto) return undefined;
+    const fecha = () => { setMenu(null); setPopupAberto(false); };
+    const tecla = e => { if (e.key === 'Escape') fecha(); };
+    window.addEventListener('click', fecha);
+    window.addEventListener('keydown', tecla);
+    return () => { window.removeEventListener('click', fecha); window.removeEventListener('keydown', tecla); };
+  }, [menu, popupAberto]);
+
+  function mencionar(nome) {
+    setTexto(t => `${t} @${nome} `.trimStart());
+    document.getElementById('caixa-mensagem')?.focus();
+  }
+
+  // ---- Envio ----
+
+  async function enviar() {
+    const t = texto.trim();
+    if (!t || enviando) return;
+    let destinos = PLATAFORMAS_DO_DOCK.includes(filtro) ? [filtro] : PLATAFORMAS_DO_DOCK.filter(p => ativas[p]);
+    if (destinos.length === 0) { avisar('Ative uma plataforma no alto ou escolha a aba de uma delas.'); return; }
+    let verbo = 'enviar';
+    let base = { mensagem: t };
+    if (t.startsWith('/')) {
+      const c = interpretarComando(t);
+      if (c.erro) { avisar(c.erro); return; }
+      verbo = c.verbo;
+      base = c.args;
+      destinos = destinos.filter(p => c.plataformas.includes(p));
+      if (destinos.length === 0) { avisar('Nenhuma das plataformas escolhidas aceita esse comando.'); return; }
+    }
+    setEnviando(true);
+    const erros = [];
+    for (const p of destinos) {
+      const erro = await executarChat(verbo, { ...base, plataforma: p });
+      if (erro) erros.push(`${NOME_DA_PLATAFORMA[p]}: ${erro}`);
+      else if (verbo === 'banir' || verbo === 'silenciar') registrarPunicao({ plataforma: p, nome: base.usuario, banido: verbo === 'banir', segundos: base.segundos || 0 });
+    }
+    setEnviando(false);
+    if (erros.length === 0) {
+      setTexto('');
+      if (verbo !== 'enviar') avisar(`Comando enviado: ${t} (${destinos.map(p => NOME_DA_PLATAFORMA[p]).join(', ')})`, false);
+    } else {
+      avisar(`Não enviei — ${[...new Set(erros)].join('; ')}`);
+    }
+  }
+
+  const placeholder = PLATAFORMAS_DO_DOCK.includes(filtro) ? `Mensagem para ${NOME_DA_PLATAFORMA[filtro]}` : 'Mensagem';
+  const vazio = visiveis.length === 0;
+
+  return (
+    <section className="cartao chat" id="painel-chat">
+      <div className="abas" role="tablist">
+        {ABAS.map(a => {
+          const plat = PLATAFORMAS_DO_DOCK.includes(a.id) ? plataformaDe(a.id) : null;
+          return (
+            <button key={a.id} type="button" role="tab" aria-selected={filtro === a.id} title={a.dica} id={`aba-${a.id}`}
+                    className={`aba${filtro === a.id ? ' aba-ativa' : ''}`} style={plat ? { '--cor-aba': plat.cor } : undefined} onClick={() => trocarFiltro(a.id)}>
+              {a.icone && <Traco nome={a.icone} />}
+              {plat && <IconePlataforma id={a.id} tamanho={13} />}
+              {a.texto}
+            </button>
+          );
+        })}
+        <span className="espaco" />
+        <button type="button" id="botao-busca" className="aba aba-icone" title="Buscar no chat (Ctrl+F)" aria-label="Buscar no chat" onClick={() => (barraAberta ? fecharBusca() : abrirBusca())}><Traco nome="lupa" /></button>
+        <button type="button" id="botao-punicoes" className="aba aba-icone" title="Silenciados e banidos desta sessão" aria-label="Silenciados e banidos" onClick={alternarPopup}>
+          <Traco nome="banir" />{punicoes.length > 0 && <span className="contador contador-neutro">{punicoes.length}</span>}
+        </button>
+      </div>
+
+      {popupAberto && <PopupPunicoes punicoes={punicoes} agora={agora} aoReverter={reverter} />}
+
+      {barraAberta && (
+        <div className="barra-busca" id="barra-busca">
+          <input id="campo-busca" type="text" value={busca} placeholder="Buscar por nome ou texto" spellCheck={false}
+                 onChange={e => { setBusca(e.target.value); seguindo.current = true; }} onKeyDown={e => { if (e.key === 'Escape') fecharBusca(); }} />
+          {usuarioFiltro && (
+            <span className="chip-usuario" id="chip-usuario">
+              {usuarioFiltro.exibir}
+              <button type="button" title="Ver todos de novo" aria-label="Ver todos de novo" onClick={() => setUsuarioFiltro(null)}>✕</button>
+            </span>
+          )}
+          <button type="button" className="link" onClick={fecharBusca} title="Fecha a busca e limpa os filtros (Esc)">Fechar</button>
+        </div>
+      )}
+
+      {fixadas.length > 0 && (
+        <div className="fixadas" id="fixadas">
+          {fixadas.map(f => (
+            <div key={f.uid} className="fixada">
+              <Traco nome="fixar" tamanho={13} />
+              <span className="fixada-texto" title={f.texto}><b>{f.nome}</b>: {f.texto}</span>
+              <button type="button" title="Desafixar" aria-label="Desafixar" onClick={() => setFixadas(l => l.filter(x => x.uid !== f.uid))}>✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="lista-chat" ref={lista} onScroll={aoRolar} id="lista-chat">
+        {vazio && <p className="vazio">{!conectado ? 'As mensagens aparecem aqui quando o Streamer.bot estiver conectado.' : termo || usuarioFiltro ? 'Nenhuma mensagem encontrada.' : 'Nenhuma mensagem ainda.'}</p>}
+        {visiveis.map(i => <Linha key={i.uid} item={i} aoMenu={abrirMenu} aoRapida={acaoRapida} />)}
+      </div>
+      {novas > 0 && <button type="button" className="novas primario" onClick={irParaOFim}>{novas === 1 ? '1 nova ↓' : `${novas} novas ↓`}</button>}
+
+      {menu && (
+        <div className="menu" style={{ left: menu.x, top: menu.y }} onClick={e => e.stopPropagation()} role="menu">
+          <button type="button" role="menuitem" onClick={() => { mencionar(menu.item.nome); setMenu(null); }}>Mencionar</button>
+          <button type="button" role="menuitem" onClick={() => { copiarTexto(`${menu.item.nome}: ${menu.item.texto}`); setMenu(null); }}>Copiar mensagem</button>
+          <hr />
+          <button type="button" role="menuitem" onClick={() => fixar(menu.item)}>Fixar mensagem</button>
+          <button type="button" role="menuitem" onClick={() => verSoEsteUsuario(menu.item)}>Ver só este usuário</button>
+          <hr />
+          <button type="button" role="menuitem" disabled={menu.item.plataforma === 'youtube'} title={menu.item.plataforma === 'youtube' ? 'O YouTube não permite apagar mensagens por aqui' : undefined}
+                  onClick={() => { moderar('apagar', menu.item); setMenu(null); }}>Apagar mensagem</button>
+          <button type="button" role="menuitem" onClick={() => { moderar('silenciar', menu.item, 60); setMenu(null); }}>Silenciar por 1 minuto</button>
+          <button type="button" role="menuitem" onClick={() => { moderar('silenciar', menu.item, 600); setMenu(null); }}>Silenciar por 10 minutos</button>
+          <button type="button" role="menuitem" className="perigo" onClick={() => pedirBanir(menu.item)}>Banir</button>
+        </div>
+      )}
+
+      {confirmacao && (
+        <div className="confirmacao" id="confirmacao">
+          <span>{confirmacao.texto}</span>
+          <button type="button" className="perigo" onClick={() => { const f = confirmacao.aoConfirmar; setConfirmacao(null); f(); }}>Sim</button>
+          <button type="button" onClick={() => setConfirmacao(null)}>Não</button>
+        </div>
+      )}
+      {status && <p className={`status${status.erro ? ' status-erro' : ''}`} id="status-chat">{status.texto}</p>}
+
+      <div className="envio">
+        <input id="caixa-mensagem" type="text" value={texto} placeholder={placeholder} title={COMANDOS} spellCheck
+               onChange={e => setTexto(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') enviar(); }} />
+        <button type="button" id="botao-enviar" disabled={enviando || !conectado} onClick={enviar}>Enviar</button>
+      </div>
+    </section>
+  );
+}
