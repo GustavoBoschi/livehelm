@@ -71,15 +71,19 @@ A conta **Bot** é opcional. Ela só serve se você quiser que as mensagens envi
 
 ## 3. Criar as ações no Streamer.bot
 
-O dock pede ao Streamer.bot que execute **ações**. Cada ação é criada **uma única vez**, com o **nome exato** (maiúsculas,
-dois-pontos e espaço contam). O dock lê a lista de ações a cada 15 segundos e reconhece as que existem. Se alguma faltar, o painel
-que a usa mostra um aviso amarelo dizendo qual.
+O dock pede ao Streamer.bot que execute **ações**. Cada ação é criada **uma única vez**. O dock lê a lista de ações a cada 15 segundos e
+reconhece as que existem. Se alguma faltar, o painel que a usa mostra um aviso amarelo dizendo qual.
+
+> **O nome da ação precisa ser EXATAMENTE igual ao das Instruções.** O dock compara letra por letra: maiúsculas e minúsculas, o
+> dois-pontos, o espaço depois dele e qualquer espaço sobrando no fim contam. `Painel: YouTube` funciona; `Painel: Youtube`,
+> `Painel:YouTube`, `painel: youtube` e `Painel: YouTube ` (com um espaço no fim) **não** funcionam. O jeito mais seguro é **copiar o nome
+> daqui e colar** no campo **Name**.
 
 ### Receita: criar uma ação
 
 1. No Streamer.bot, vá em **Actions & Queues > Actions**.
 2. Clique com o botão direito na área de ações e escolha **Add**.
-3. No campo **Name**, escreva o nome exato da ação (por exemplo `Painel: Twitch`) e confirme.
+3. No campo **Name**, cole o nome da ação **exatamente** como está nestas Instruções (por exemplo `Painel: Twitch`) e confirme.
 4. Clique na ação nova para selecioná-la. O painel **Sub-Actions** (à direita) fica ativo.
 5. Clique com o botão direito no painel de sub-ações e escolha a sub-ação indicada em cada receita abaixo. Para configurar uma
    sub-ação, dê dois cliques nela.
@@ -196,7 +200,7 @@ No alto do código há a constante **`USAR_BOT`**. Com `false` (o padrão), as m
 #### Opcional, sem código
 
 Enviar, silenciar e banir também existem como sub-ações prontas em cada plataforma. Se preferir, crie uma ação por combinação,
-com a sub-ação nativa e o nome exato, por exemplo:
+com a sub-ação nativa e o nome **exatamente** igual, por exemplo:
 
 - `Painel: Enviar Twitch`: `Twitch > Chat > Send Message` com `%mensagem%`.
 - `Painel: Silenciar Kick`: o *timeout* da Kick com `%usuario%` e `%segundos%`.
@@ -291,7 +295,7 @@ nas configurações do dock, então prefira a tela de configurações).
 | Bolinha **vermelha**, aviso "Streamer.bot desconectado" | O Streamer.bot está fechado ou o **WebSocket Server** está desligado. Abra-o e ligue (seção 2.3). Confira também o endereço e a porta nas configurações do dock. |
 | Aviso "O Streamer.bot recusou a conexão" | A senha está errada ou faltando. Coloque a mesma senha do **Password** do Streamer.bot nas configurações do dock. |
 | Bolinha **amarela** | Uma plataforma ligada no alto não está conectada no Streamer.bot. Entre com a conta dela (seção 2.2) ou desligue a plataforma no alto do dock. |
-| "Faltam ações no Streamer.bot: …" | O Streamer.bot não tem uma ação com o nome **exato**: o dock compara letra por letra, então `Painel: Youtube`, `Painel:YouTube` ou um espaço no fim não valem. Copie o nome das Instruções, confirme com **Ok** a janela da sub-ação e espere até 15 s (o dock relê a lista a cada 15 s). Se você não usa aquela plataforma, desligue o botão dela no alto do dock e o aviso some. |
+| "Faltam ações no Streamer.bot: …" | O Streamer.bot não tem uma ação com o nome **EXATAMENTE igual** ao esperado: o dock compara letra por letra, então `Painel: Youtube`, `Painel:YouTube` ou um espaço no fim não valem. Copie o nome das Instruções, confirme com **Ok** a janela da sub-ação e espere até 15 s (o dock relê a lista a cada 15 s). Se você não usa aquela plataforma, desligue o botão dela no alto do dock e o aviso some. |
 | O título do YouTube não muda (e não aparece erro) | Duas causas comuns: o **Broadcast** da sub-ação `YouTube > Set Title` está em **From Variable** (troque para **All**), ou o YouTube não está conectado no Streamer.bot (a janela da sub-ação mostra **Not Connected** e o pontinho do YouTube no alto do dock fica cinza; entre em `Platforms > YouTube > Accounts`, seção 2.2). |
 | Alertas de seguidor da Kick não chegam | Ligue a conta da Kick também no site do Streamer.bot (**Account > Connections**), além do login no aplicativo. |
 | Tags: "sem resposta da ação (cole o código novo…)" | A ação `Painel: Tags` está com um código antigo ou não compilou. Cole [`Painel-Tags.cs`](../acoes-streamerbot/Painel-Tags.cs) de novo e use **Save and Compile**. |

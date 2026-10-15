@@ -76,7 +76,7 @@ fica no dock.
 Você precisa do **OBS Studio 28 ou mais novo** e do **Streamer.bot** (testado na versão 1.0.7), no Windows.
 
 1. **Streamer.bot:** entre com a conta de cada plataforma e ligue o servidor WebSocket (`Servers/Clients > WebSocket Server`).
-2. **Ações:** crie no Streamer.bot as ações `Painel: ...` que o dock usa (as de C# são só colar o código da pasta
+2. **Ações:** crie no Streamer.bot as ações `Painel: ...` que o dock usa, com o nome **EXATAMENTE igual** ao das Instruções (as de C# são só colar o código da pasta
    [`acoes-streamerbot/`](acoes-streamerbot)).
 3. **Dock:** feche o OBS e rode o **`Instalar LiveHelm.exe`** (da página de *Releases*, ou gerado com
    [`npm run instalador`](#desenvolvimento)). Abra o OBS: o dock **LiveHelm** aparece na janela.
