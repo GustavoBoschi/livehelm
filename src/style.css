@@ -325,6 +325,8 @@ button.link { border: 0; background: transparent; color: var(--acento-claro); pa
 .amostra-ativa { outline: 2px solid var(--acento-claro); outline-offset: 2px; }
 .opcao-linha { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .opcao-linha input { accent-color: var(--acento); }
+.alertas-grupo { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.configuracoes button.link { align-self: flex-start; }
 .configuracoes button.primario { align-self: flex-start; }
 .resultado-teste { margin: 0; font-size: 12.5px; }
 

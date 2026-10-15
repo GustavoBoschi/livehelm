@@ -1,4 +1,4 @@
-// Configurações do dock (aba aberta pela bolinha de estado): tema, conexões, marcação de momentos e aviso de anúncio. Tudo fica no armazenamento
+// Configurações do dock (aba aberta pela bolinha de estado): tema, conexões, marcação de momentos, alertas do chat e aviso de anúncio. Tudo fica no armazenamento
 // do navegador do dock; o que não foi mudado vale o padrão de config.js. O tema vira variáveis de CSS no <html>.
 import { ler, gravar } from './armazenamento.js';
 import { STREAMERBOT_URL, STREAMERBOT_SENHA, OBS_URL, OBS_SENHA } from './config.js';
@@ -29,6 +29,7 @@ const PADRAO = {
   streamerbot: { url: STREAMERBOT_URL, senha: STREAMERBOT_SENHA },
   obs: { url: OBS_URL, senha: OBS_SENHA },
   momentos: { pasta: '', tituloDeClipe: false }, // pasta vazia = a Clipes ao lado do dock
+  alertasNoChat: { escolhas: {} }, // { tipo de alerta: true | false }; o que não está aqui segue o padrão de alertas.js
   anuncio: { ligado: false, antecedencia: ANTECEDENCIA_PADRAO_S }, // o aviso vem desligado: o botão Adiar mexe na live
 };
 

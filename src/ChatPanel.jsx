@@ -5,6 +5,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { assinarStreamerbot } from './streamerbot.js';
 import { passaNaAba } from './alertas.js';
+import { lerConfig } from './configuracoes.js';
 import { plataformaDe } from './plataformas.js';
 import { executarChat, NOME_DA_PLATAFORMA, PLATAFORMAS_DO_DOCK } from './acoes.js';
 import { IconePlataforma, Traco } from './Icones.jsx';
@@ -21,9 +22,9 @@ const COMANDOS = 'Comandos: /ban nome · /timeout nome segundos · /limpar (só 
 
 const ABAS = [
   { id: 'tudo', dica: 'Tudo: mostra as mensagens de todas as plataformas e os alertas principais (seguidor, sub, presente, apoio e raid), e envia para as ativas no alto', icone: 'globo' },
-  { id: 'twitch', dica: 'Só a Twitch: mostra e envia só para ela' },
-  { id: 'kick', dica: 'Só a Kick: mostra e envia só para ela' },
-  { id: 'youtube', dica: 'Só o YouTube: mostra e envia só para ele' },
+  { id: 'twitch', dica: 'Só a Twitch: mostra as mensagens e os alertas principais dela, e envia só para ela' },
+  { id: 'kick', dica: 'Só a Kick: mostra as mensagens e os alertas principais dela, e envia só para ela' },
+  { id: 'youtube', dica: 'Só o YouTube: mostra as mensagens e os alertas principais dele, e envia só para ele' },
   { id: 'alertas', dica: 'Todos os alertas de todas as plataformas, inclusive anúncio, resgates, hype train, votações e previsões', texto: 'Alertas' },
 ];
 
@@ -50,9 +51,10 @@ function interpretarComando(texto) {
   }
 }
 
+// Rótulo pequeno antes do nome. O resgate de pontos fica sem rótulo: "Fulano resgatou X · 500 pontos" já diz o que é.
 const ROTULO_DO_ALERTA = {
   new_follower: 'Seguidor', new_subscriber: 'Sub', resub: 'Resub', subscription_gift: 'Sub de presente', sponsorship: 'Membro',
-  membermilestone: 'Membro', giftpurchase: 'Presente', giftredemption: 'Presente', reward: 'Resgate', cheer: 'Bits', gift: 'Presente',
+  membermilestone: 'Membro', giftpurchase: 'Presente', giftredemption: 'Presente', cheer: 'Bits', gift: 'Presente',
   jeweldonation: 'Joias', hype_chat: 'Hype Chat', superchat: 'Superchat', supersticker: 'Super Sticker', raid: 'Raid',
   hype_train: 'Hype train', poll: 'Votação', prediction: 'Previsão', upcoming_ad: 'Anúncio',
 };
@@ -100,7 +102,8 @@ const Linha = memo(function Linha({ item, aoMenu, aoRapida }) {
   );
 });
 
-export default function ChatPanel({ ativas, conectado }) {
+// `oculto`: o painel fica montado, só escondido, com as configurações abertas (o feed não se perde) e relê as escolhas de alertas ao voltar.
+export default function ChatPanel({ ativas, conectado, oculto = false }) {
   const [itens, setItens] = useState([]);
   const [filtro, setFiltro] = useState('tudo');
   const [novas, setNovas] = useState(0);
@@ -120,6 +123,7 @@ export default function ChatPanel({ ativas, conectado }) {
   const seguindo = useRef(true);
   const itensRef = useRef(itens);
   const passaRef = useRef(null);
+  const escolhas = useMemo(() => lerConfig().alertasNoChat.escolhas, [oculto]);
   const temporizadorStatus = useRef(null);
   const primeirasPendentes = useRef(new Set()); // ids de primeira mensagem cujo aviso chegou antes da mensagem
   const contador = useRef(0);
@@ -131,7 +135,7 @@ export default function ChatPanel({ ativas, conectado }) {
     if (!termo) return true;
     return simplificar(item.tipo === 'alerta' ? `${item.rotulo} ${item.nome} ${item.detalhe}` : `${item.nome} ${item.texto}`).includes(termo);
   }, [usuarioFiltro, termo]);
-  passaRef.current = item => passaNaAba(item, filtro) && passaNaBusca(item);
+  passaRef.current = item => passaNaAba(item, filtro, escolhas) && passaNaBusca(item);
 
   const avisar = useCallback((t, erro = true) => {
     setStatus({ texto: t, erro });
@@ -220,12 +224,12 @@ export default function ChatPanel({ ativas, conectado }) {
 
   // ---- Rolagem ----
 
-  const visiveis = useMemo(() => itens.filter(i => passaNaAba(i, filtro) && passaNaBusca(i)), [itens, filtro, passaNaBusca]);
+  const visiveis = useMemo(() => itens.filter(i => passaNaAba(i, filtro, escolhas) && passaNaBusca(i)), [itens, filtro, escolhas, passaNaBusca]);
 
   useLayoutEffect(() => {
     const el = lista.current;
     if (el && seguindo.current) el.scrollTop = el.scrollHeight;
-  }, [visiveis, filtro]);
+  }, [visiveis, filtro, oculto]);
 
   function aoRolar() {
     const el = lista.current;
@@ -264,10 +268,10 @@ export default function ChatPanel({ ativas, conectado }) {
     seguindo.current = true;
   }
   useEffect(() => {
-    const tecla = e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') { e.preventDefault(); abrirBusca(); } };
+    const tecla = e => { if (!oculto && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') { e.preventDefault(); abrirBusca(); } };
     window.addEventListener('keydown', tecla);
     return () => window.removeEventListener('keydown', tecla);
-  }, [abrirBusca]);
+  }, [abrirBusca, oculto]);
 
   // ---- Fixadas ----
 
@@ -367,7 +371,7 @@ export default function ChatPanel({ ativas, conectado }) {
   const vazio = visiveis.length === 0;
 
   return (
-    <section className="cartao chat" id="painel-chat">
+    <section className="cartao chat" id="painel-chat" style={oculto ? { display: 'none' } : undefined}>
       <div className="abas" role="tablist">
         {ABAS.map(a => {
           const plat = PLATAFORMAS_DO_DOCK.includes(a.id) ? plataformaDe(a.id) : null;

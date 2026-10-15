@@ -7,6 +7,7 @@ import { reconectarStreamerbot } from './streamerbot.js';
 import { tempoDoOBS, formatarTempo } from './obs.js';
 import { testarAvisoDeAnuncio } from './AvisoAnuncio.jsx';
 import { NOME_DA_ACAO_DE_ANUNCIO } from './acoes.js';
+import { ALERTAS_NO_CHAT_GERAL, TIPOS_DE_ALERTA, apareceNoChatGeral } from './alertas.js';
 
 export default function Configuracoes({ conectado, recusa, onVoltar }) {
   const [config, setConfig] = useState(lerConfig);
@@ -26,6 +27,20 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
     const momentos = { ...config.momentos, ...parte };
     gravarSecao('momentos', momentos);
     setConfig({ ...config, momentos });
+  }
+  // Guarda só o que difere do padrão, então um tipo novo de alerta segue o padrão sem o usuário fazer nada.
+  function mudarAlerta(id, ligado) {
+    const escolhas = { ...config.alertasNoChat.escolhas };
+    if (ligado === ALERTAS_NO_CHAT_GERAL.has(id)) delete escolhas[id];
+    else escolhas[id] = ligado;
+    const alertasNoChat = { ...config.alertasNoChat, escolhas };
+    gravarSecao('alertasNoChat', alertasNoChat);
+    setConfig({ ...config, alertasNoChat });
+  }
+  function voltarAoPadraoDosAlertas() {
+    const alertasNoChat = { ...config.alertasNoChat, escolhas: {} };
+    gravarSecao('alertasNoChat', alertasNoChat);
+    setConfig({ ...config, alertasNoChat });
   }
   function mudarAnuncio(parte) {
     const anuncio = { ...config.anuncio, ...parte };
@@ -111,6 +126,23 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
         <label className="rotulo" htmlFor="config-pasta">Pasta dos arquivos de clipes</label>
         <input id="config-pasta" type="text" value={config.momentos.pasta} spellCheck={false} placeholder={padraoDaPasta || 'Documentos\\LiveHelm\\Clipes'}
                onChange={e => mudarMomentos({ pasta: e.target.value })} />
+      </div>
+
+      <div className="config-secao" id="config-alertas">
+        <h3>Alertas no chat</h3>
+        <p className="dica">A aba <b>Alertas</b> mostra todos os alertas, sempre. Marque os que também devem aparecer na aba <b>Tudo</b> e nas abas de cada plataforma.</p>
+        {TIPOS_DE_ALERTA.map(g => (
+          <div key={g.grupo} className="alertas-grupo">
+            <div className="rotulo">{g.grupo}</div>
+            {g.itens.map(i => (
+              <label key={i.id} className="opcao-linha" htmlFor={`config-alerta-${i.id}`}>
+                <input id={`config-alerta-${i.id}`} type="checkbox" checked={apareceNoChatGeral(i.id, config.alertasNoChat.escolhas)} onChange={e => mudarAlerta(i.id, e.target.checked)} />
+                {i.nome}
+              </label>
+            ))}
+          </div>
+        ))}
+        <button type="button" id="config-alertas-padrao" className="link" onClick={voltarAoPadraoDosAlertas}>Voltar ao padrão</button>
       </div>
 
       <div className="config-secao">

@@ -150,9 +150,9 @@ export default function App() {
           {paineis.tags && <Tags ativas={ativas} conectado={conectado} nomesDeAcoes={nomesDeAcoes} />}
           {paineis.momentos && <Momentos conectado={conectado} nomesDeAcoes={nomesDeAcoes} />}
           {paineis.inter && <Interacoes ativas={ativas} conectado={conectado} />}
-          {paineis.chat && <ChatPanel ativas={ativas} conectado={conectado} />}
         </>
       )}
+      {paineis.chat && <ChatPanel ativas={ativas} conectado={conectado} oculto={configAberta} />}
     </div>
   );
 }

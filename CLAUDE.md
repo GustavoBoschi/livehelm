@@ -60,6 +60,10 @@ argumento têm que ser idênticos nos dois lados.** Mudou um, mude o outro e a t
   `title`, `categoryName`), convertidos em `atualizacao` e entregues por `notificarAtualizacao`.
 - `converterEventoStreamerbot` é puro. Campos sem esquema documentado são lidos de forma defensiva (vários candidatos, vazio se
   faltar). Só `Twitch.ChatMessage`, `Kick.ChatMessage` e `Twitch.Follow` foram vistos com dados reais.
+- **Resgates de pontos:** `Twitch.RewardRedemption` (recompensa personalizada: `reward.title`, `reward.cost`, `user`), `Twitch.AutomaticRewardRedemption`
+  (recompensas padrão: `rewardType`, `channelPoints`, `user`; os tipos têm nome em português em `RECOMPENSAS_PADRAO`) e `Kick.RewardRedemption`
+  (sem esquema documentado: `redeemer` ou `user`, título e custo por vários candidatos). Todos viram o alerta `reward`; sem nome de quem resgatou ele
+  aparece como "Alguém" em vez de sumir (`nomePadrao`). Power-ups pagos com Bits (`PowerUpRedemption`) não são assinados.
 - `Twitch.UpcomingAd` dispara **uma vez por minuto nos 5 minutos** antes do anúncio. Segundo a documentação do Streamer.bot traz
   `minutes`, `nextAdAt` (hora exata, UTC), `adLength` (s) e `snoozesLeft`; `streamerbot.js` os lê (`segundosDe`, `anuncioDe`) e o
   alerta leva `segundos` e `anuncio`. O formato no WebSocket ainda não foi visto com um anúncio real: confirme (Test Trigger no
@@ -72,7 +76,7 @@ argumento têm que ser idênticos nos dois lados.** Mudou um, mude o outro e a t
 - Preferências usam `ler`/`gravar` (`armazenamento.js`, prefixo `livehelm.`), que nunca lançam: sem armazenamento, o dock só não
   lembra de nada.
 - Configurações ficam em `configuracoes.js`, **por seção** (`lerConfig` mescla o salvo com o padrão seção por seção): `tema`,
-  `streamerbot`, `obs`, `momentos` e `anuncio`. Opção nova = seção nova ali e um bloco em `Configuracoes.jsx`. Endereço e senha: a URL
+  `streamerbot`, `obs`, `momentos`, `alertasNoChat` e `anuncio`. Opção nova = seção nova ali e um bloco em `Configuracoes.jsx`. Endereço e senha: a URL
   (`?streamerbot=`, `?sbsenha=`) vale antes do salvo, e este antes de `config.js`.
 - O tema é escrito por `aplicarTema` em variáveis CSS no `<html>` (`--acento`, `--acento-claro`, `--acento-rgb`,
   `--acento-texto` e as de fundo), e `main.jsx` o aplica antes do primeiro quadro. O CSS usa `rgba(var(--acento-rgb), x)`, nunca
@@ -87,11 +91,14 @@ argumento têm que ser idênticos nos dois lados.** Mudou um, mude o outro e a t
 - **Chat** (`ChatPanel.jsx`, `punicoes.js`): `punicoes.js` junta o que o dock fez e o que a plataforma avisou. O verbo `reverter`
   responde ok mesmo com código antigo, então o item só ganha a hora do pedido. O feed guarda no máximo `MAX_ITENS` linhas. O dock
   assina os eventos direto e recebe mesmo com o painel escondido.
-- **Abas do chat** (`alertas.js`, puro): a aba Tudo mostra as mensagens e só os alertas de `ALERTAS_NO_CHAT_GERAL` (seguidor, subs,
-  presentes, Bits, raid, resgate de pontos, Hype Chat, Super Chat e afins). É uma lista **permitida**: um alerta novo de `ALERTAS` (em
-  `streamerbot.js`) fica só na aba Alertas até entrar nela. Anúncio, hype train, votação, previsão e os avisos de moderação do dock
-  (`evento: 'moderacao'`: banido, silenciado, chat limpo) também ficam só nessa aba, que mostra todos os alertas. `ChatPanel.jsx`
-  guarda o tipo no item (`evento`) e usa `passaNaAba`; o resgate de pontos ganha a classe `linha-resgate` (fundo na cor da plataforma).
+- **Abas do chat** (`alertas.js`, puro): a aba Tudo mostra as mensagens e os alertas escolhidos; o padrão é `ALERTAS_NO_CHAT_GERAL` (seguidor,
+  subs, presentes, Bits, raid, resgate de pontos, Hype Chat, Super Chat e afins), uma lista **permitida**: um alerta novo de `ALERTAS` (em
+  `streamerbot.js`) fica só na aba Alertas até entrar nela. Todo alerta também precisa constar em `TIPOS_DE_ALERTA` (o catálogo que as
+  configurações oferecem, com um teste que cobra isso). O usuário liga ou desliga cada tipo em Configurações > Alertas no chat
+  (`config.alertasNoChat.escolhas`: só o que difere do padrão é gravado); a aba Alertas mostra todos, sempre. Anúncio, hype train, votação, previsão e os avisos de moderação do dock
+  (`evento: 'moderacao'`: banido, silenciado, chat limpo) também ficam só nessa aba, que mostra todos os alertas. As abas de plataforma mostram o mesmo que a Tudo, só daquela plataforma (`passaNaAba`). `ChatPanel.jsx`
+  guarda o tipo no item (`evento`), usa `passaNaAba` com as escolhas e fica **montado, só escondido** (`oculto`) com as configurações abertas, para
+  o feed não se perder; ele relê as escolhas quando volta a aparecer; o resgate de pontos ganha a classe `linha-resgate` (fundo na cor da plataforma).
 - **Aviso de anúncio** (`AvisoAnuncio.jsx`, `anuncios.js`): pop-up de uma linha, fixo por cima do dock e montado no `App`, então não
   depende do painel de chat estar visível. É pequeno de propósito para cobrir o mínimo do chat. `anuncios.js` (puro) guarda o último
   aviso `upcoming_ad` (`alerta.anuncio`: `quandoMs`, `duracaoS`, `adiamentos`) e decide quando mostrar (`deveMostrar`: faltando

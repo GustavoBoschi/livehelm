@@ -156,8 +156,11 @@ Mensagens e alertas das três plataformas num feed só, com abas **Tudo**, **Twi
 - **Alertas** no mesmo feed: a aba **Tudo** mostra, junto das mensagens, só o que importa na hora: seguidores, inscrições (novas,
   renovações e presentes), Bits, raids, resgates de pontos, Hype Chat, Super Chat, Super Sticker, presentes e membros. Hype train,
   enquetes e previsões, o **aviso de anúncio** (a Twitch avisa uma vez por minuto nos 5 minutos antes) e os avisos de moderação
-  (banido, silenciado, chat limpo) aparecem só na aba **Alertas**, que mostra todos. A lista fica em `src/alertas.js`. O **resgate de
-  pontos** ganha um fundo na cor da plataforma para se destacar dos outros alertas.
+  (banido, silenciado, chat limpo) aparecem só na aba **Alertas**, que mostra todos. A lista fica em `src/alertas.js`. As abas **Twitch**, **Kick** e **YouTube** mostram o mesmo que a **Tudo**, só daquela plataforma. Em **Configurações > Alertas no chat** você
+  escolhe, tipo por tipo, quais alertas aparecem na **Tudo** e nas abas de plataforma (a aba **Alertas** mostra todos, sempre); o padrão é o
+  descrito acima e há o botão **Voltar ao padrão**. O **resgate de
+  pontos** (da Twitch, inclusive as recompensas padrão como mensagem em destaque, emotes e efeitos, e da Kick) ganha um fundo na cor
+  da plataforma para se destacar dos outros alertas.
 - **Aviso de anúncio (Twitch):** um pop-up compacto (uma linha de 32 px) por cima do dock, com a contagem regressiva, quando faltam 15,
   30, 45 ou 60 segundos para o anúncio. **Adiar 5 min** empurra o anúncio (a Twitch só permite adiar, não cancelar, e enquanto houver adiamentos) pela ação
   `Painel: Anuncio`; **Deixar rodar** dispensa o aviso. Vem **desligado**, em Configurações > Aviso de anúncio, onde também há o

@@ -20,7 +20,7 @@ const CONEXAO_ESTAVEL_MS = 5000; // aberta por mais que isso: a próxima queda r
 const EVENTOS_ASSINADOS = {
   Twitch: [
     'ChatMessage', 'ChatMessageDeleted', 'ChatCleared', 'UserBanned', 'UserTimedOut', 'StreamUpdate',
-    'Follow', 'Sub', 'ReSub', 'GiftSub', 'GiftBomb', 'Cheer', 'Raid', 'RewardRedemption', 'HypeChat', 'HypeTrainStart', 'HypeTrainLevelUp',
+    'Follow', 'Sub', 'ReSub', 'GiftSub', 'GiftBomb', 'Cheer', 'Raid', 'RewardRedemption', 'AutomaticRewardRedemption', 'HypeChat', 'HypeTrainStart', 'HypeTrainLevelUp',
     'FirstWord', 'PollCreated', 'PollCompleted', 'PollTerminated', 'PredictionCreated', 'PredictionLocked', 'PredictionCompleted',
     'PredictionCanceled', 'UpcomingAd',
   ],
@@ -82,6 +82,25 @@ function anuncioDe(d) {
 }
 const adiamentosTexto = n => (n === null ? '' : `${n} ${n === 1 ? 'adiamento restante' : 'adiamentos restantes'}`);
 
+// Resgate de pontos. Recompensa personalizada (Twitch.RewardRedemption: reward.title e reward.cost) e Kick.RewardRedemption (sem esquema
+// documentado: vários candidatos). As recompensas padrão da Twitch chegam em Twitch.AutomaticRewardRedemption, com rewardType e
+// channelPoints; os tipos têm nome em português e um tipo novo aparece com o nome cru.
+const RECOMPENSAS_PADRAO = {
+  send_highlighted_message: 'Mensagem em destaque',
+  random_sub_emote_unlock: 'Emote aleatório de sub',
+  chosen_sub_emote_unlock: 'Emote de sub à escolha',
+  chosen_modified_sub_emote_unlock: 'Emote de sub modificado',
+  single_message_bypass_sub_mode: 'Mensagem no modo só inscritos',
+  message_effect: 'Efeito de mensagem',
+  gigantify_an_emote: 'Emote gigante',
+  celebration: 'Celebração na tela',
+};
+const tituloDoResgate = d => texto((d.reward && (d.reward.title || d.reward.name)) || d.rewardName || d.rewardTitle || d.title);
+const custoDoResgate = d => numero(d.reward && d.reward.cost, d.rewardCost, d.cost, d.channelPoints, d.points);
+const detalheDoResgate = d => [tituloDoResgate(d), comUnidade(custoDoResgate(d), 'pontos')].filter(Boolean).join(' · ');
+const tipoDeRecompensaPadrao = d => RECOMPENSAS_PADRAO[d.rewardType] || texto(d.rewardType).replace(/_/g, ' ');
+const NOME_SEM_USUARIO = 'Alguém'; // quando o evento não diz quem resgatou, o alerta aparece assim em vez de sumir
+
 // Peças dos textos dos alertas. Os campos de nível e de meses de sub não têm esquema documentado: vários candidatos.
 function tierDe(d) {
   const bruto = texto(d.subTier || d.tier || d.subscriptionTier).trim();
@@ -117,7 +136,7 @@ const quem = (acao, antes = '') => ({ principal: (d, nome) => [antes, nome, acao
 const abertura = (event, rotulo) => ({ event, rotulo: () => rotulo, nome: tituloDe, principal: tituloDe, detalhe: opcoesDe });
 const encerrada = (event, rotulo) => ({ event, rotulo: () => rotulo, nome: tituloDe, principal: tituloDe, destaque: vencedorDe, detalhe: d => (vencedorDe(d) ? '' : opcoesDe(d)) });
 const cancelada = (event, rotulo) => ({ event, rotulo: () => rotulo, nome: tituloDe, principal: tituloDe });
-const ALERTAS = {
+export const ALERTAS = {
   'Twitch.Follow': seguidor('Acabou de seguir'),
   'Kick.Follow': seguidor('Acabou de seguir'),
   'YouTube.NewSubscriber': seguidor('Acabou de se inscrever'),
@@ -133,16 +152,14 @@ const ALERTAS = {
   'YouTube.MemberMileStone': { event: 'membermilestone', ...quem('renovou a assinatura'), detalhe: d => juntarLinha(nivelDe(d), mesesTexto(mesesDe(d))) },
   'YouTube.MembershipGift': { event: 'giftpurchase' },
   'YouTube.GiftMembershipReceived': { event: 'giftredemption' },
-  'Twitch.RewardRedemption': {
+  'Twitch.RewardRedemption': { event: 'reward', ...quem('resgatou'), nomePadrao: NOME_SEM_USUARIO, detalhe: detalheDoResgate },
+  'Twitch.AutomaticRewardRedemption': {
     event: 'reward',
     ...quem('resgatou'),
-    detalhe: d => [texto(d.reward && d.reward.title), comUnidade(numero(d.reward && d.reward.cost), 'pontos')].filter(Boolean).join(' · '),
+    nomePadrao: NOME_SEM_USUARIO,
+    detalhe: d => [tipoDeRecompensaPadrao(d), comUnidade(custoDoResgate(d), 'pontos')].filter(Boolean).join(' · '),
   },
-  'Kick.RewardRedemption': {
-    event: 'reward',
-    ...quem('resgatou'),
-    detalhe: d => [texto((d.reward && d.reward.title) || d.title || d.rewardTitle), comUnidade(numero(d.reward && d.reward.cost, d.cost), 'pontos')].filter(Boolean).join(' · '),
-  },
+  'Kick.RewardRedemption': { event: 'reward', ...quem('resgatou'), nomePadrao: NOME_SEM_USUARIO, detalhe: detalheDoResgate },
   'Twitch.Cheer': {
     event: 'cheer',
     nome: d => (d.anonymous ? 'Anônimo' : ''),
@@ -213,7 +230,7 @@ function mensagemEmTexto(data) {
   return partes.map(p => texto(p.text)).join('');
 }
 
-const usuarioDe = data => data.user || data.targetUser || data.raider || data.gifter || data.author || {};
+const usuarioDe = data => data.user || data.redeemer || data.targetUser || data.raider || data.gifter || data.author || {};
 
 // Converte uma mensagem do WebSocket do Streamer.bot em um evento tipado ou null se não usamos.
 // Pura: não mexe em DOM nem em estado.
@@ -277,7 +294,7 @@ export function converterEventoStreamerbot(msg) {
 
   const alerta = ALERTAS[chave];
   if (alerta) {
-    const nome = (alerta.nome && alerta.nome(data)) || usuario.name || usuario.login;
+    const nome = (alerta.nome && alerta.nome(data)) || usuario.name || usuario.login || usuario.username || alerta.nomePadrao;
     if (!nome) return null;
     const quando = texto(data.followedAt || data.timestamp || data.createdAt || data.publishedAt);
     const nivel = texto(data.subTier || data.tier || data.levelName || data.membershipLevel);

@@ -200,7 +200,8 @@ No alto do código há a constante **`USAR_BOT`**. Com `false` (o padrão), as m
 
 Na aba **Tudo** do chat aparecem as mensagens e só os alertas principais (seguidor, sub, presente, apoio, resgate de pontos e raid).
 O aviso de anúncio (a Twitch avisa uma vez por minuto nos 5 minutos antes), o hype train, as votações, as previsões e os avisos de
-moderação (banido, silenciado e chat limpo) aparecem só na aba **Alertas**.
+moderação (banido, silenciado e chat limpo) aparecem só na aba **Alertas**. As abas **Twitch**, **Kick** e **YouTube** mostram o mesmo
+que a **Tudo**, só daquela plataforma. Você muda isso em **Configurações > Alertas no chat** ([seção 6](#6-configurar-o-dock)).
 
 ### `Painel: Anuncio`: adiar o anúncio da Twitch (opcional)
 
@@ -286,6 +287,7 @@ Clique na **bolinha de estado** (a verde, amarela ou vermelha, no canto de cima)
 | **Streamer.bot** | **Endereço** (`ws://127.0.0.1:8080`) e **Senha** (a do passo 2.3, ou vazia). Clique em **Salvar e reconectar** |
 | **OBS** | **Endereço** (`ws://127.0.0.1:4455`) e **Senha** (a do passo 4, ou vazia). **Salvar e testar** mostra o tempo atual da live |
 | **Marcação de momentos** | **Dar título a cada clipe** e a **pasta** dos arquivos (vazia: a pasta `Clipes` ao lado do dock, ou seja, `%LOCALAPPDATA%\LiveHelm\Clipes` no dock instalado; se escolher outra, use o caminho completo, como `C:\Clipes`) |
+| **Alertas no chat** | Marque os tipos de alerta que também devem aparecer na aba **Tudo** e nas abas de cada plataforma (seguidor, sub, resgate de pontos, anúncio, banimento...). A aba **Alertas** mostra todos, sempre. **Voltar ao padrão** desfaz as suas escolhas |
 | **Aviso de anúncio (Twitch)** | **Avisar antes de cada anúncio** (vem desligado) e com quantos segundos de antecedência (15, 30, 45 ou 60). **Testar o aviso** mostra o pop-up de mentira, sem falar com a Twitch |
 
 O **aviso de anúncio** é um pop-up por cima do dock com a contagem regressiva e dois botões: **Adiar 5 min** (usa a ação
@@ -325,6 +327,7 @@ nas configurações do dock, então prefira a tela de configurações).
 | O título do YouTube não muda (e não aparece erro) | Duas causas comuns: o **Broadcast** da sub-ação `YouTube > Set Title` está em **From Variable** (troque para **All**), ou o YouTube não está conectado no Streamer.bot (a janela da sub-ação mostra **Not Connected** e o pontinho do YouTube no alto do dock fica cinza; entre em `Platforms > YouTube > Accounts`, seção 2.2). |
 | O aviso de anúncio não aparece | Ele vem desligado: ligue em **Configurações > Aviso de anúncio**. Use **Testar o aviso** para ver o pop-up. O Streamer.bot só avisa de anúncios da Twitch, uma vez por minuto nos 5 minutos antes. |
 | O botão Adiar 5 min está apagado ou não adia | Falta a ação `Painel: Anuncio` (sem acento, [seção 3](#painel-anuncio-adiar-o-anúncio-da-twitch-opcional)), ou a Twitch não tem mais adiamentos (o aviso mostra quantos restam), ou o Streamer.bot precisa entrar de novo na Twitch para ganhar a permissão de gerenciar anúncios. |
+| O resgate de pontos não aparece no chat | Ele aparece na aba **Tudo** e na **Alertas**. Na Twitch chegam as suas recompensas e as padrão (mensagem em destaque, emotes, efeito de mensagem...); Power-ups pagos com Bits não aparecem. Na Kick vale o mesmo cuidado dos alertas: conta ligada no site do Streamer.bot e Streamer.bot reiniciado (próxima linha). O resgate só aparece se o Streamer.bot estiver conectado à plataforma (**Platforms**, seção 2.2). |
 | Mensagens ou alertas da Kick não chegam | Ligue a conta da Kick também no site do Streamer.bot (**Account > Connections**), além do login no aplicativo, e **reinicie o Streamer.bot** depois de conectar com o site. |
 | Tags: "sem resposta da ação (cole o código novo…)" | A ação `Painel: Tags` está com um código antigo ou não compilou. Cole [`Painel-Tags.cs`](../acoes-streamerbot/Painel-Tags.cs) de novo e use **Save and Compile**. |
 | Tags: "nao consegui ler o canal" | A Twitch não está conectada como **Broadcaster** no Streamer.bot (seção 2.2). |
