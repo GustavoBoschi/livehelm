@@ -7,7 +7,7 @@
     <AssemblyName>Instalar LiveHelm</AssemblyName>
     <RootNamespace>InstaladorLiveHelm</RootNamespace>
     <ApplicationIcon>icone.ico</ApplicationIcon>
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
     <DebugType>none</DebugType>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>

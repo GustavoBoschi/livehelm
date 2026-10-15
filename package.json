@@ -1,7 +1,7 @@
 {
   "name": "livehelm",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Dock do OBS para controlar a live: título, categoria, tags, momentos, enquetes e chat de Twitch, Kick e YouTube",
   "author": "Gustavo Boschini Rossetti",
   "contributors": [
