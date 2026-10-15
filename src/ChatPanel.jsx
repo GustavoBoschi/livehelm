@@ -4,6 +4,7 @@
 // foi punido ficam riscadas; o feed guarda no máximo MAX_ITENS linhas.
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { assinarStreamerbot } from './streamerbot.js';
+import { passaNaAba } from './alertas.js';
 import { plataformaDe } from './plataformas.js';
 import { executarChat, NOME_DA_PLATAFORMA, PLATAFORMAS_DO_DOCK } from './acoes.js';
 import { IconePlataforma, Traco } from './Icones.jsx';
@@ -19,11 +20,11 @@ const SILENCIO_RAPIDO_S = 300; // o silêncio do botão da linha
 const COMANDOS = 'Comandos: /ban nome · /timeout nome segundos · /limpar (só Twitch)';
 
 const ABAS = [
-  { id: 'tudo', dica: 'Tudo: mostra todas as plataformas e envia para as ativas no alto', icone: 'globo' },
+  { id: 'tudo', dica: 'Tudo: mostra as mensagens de todas as plataformas e os alertas principais (seguidor, sub, presente, apoio e raid), e envia para as ativas no alto', icone: 'globo' },
   { id: 'twitch', dica: 'Só a Twitch: mostra e envia só para ela' },
   { id: 'kick', dica: 'Só a Kick: mostra e envia só para ela' },
   { id: 'youtube', dica: 'Só o YouTube: mostra e envia só para ele' },
-  { id: 'alertas', dica: 'Alertas de todas as plataformas', texto: 'Alertas' },
+  { id: 'alertas', dica: 'Todos os alertas de todas as plataformas, inclusive anúncio, resgates, hype train, votações e previsões', texto: 'Alertas' },
 ];
 
 // Comandos da caixa: devolve { verbo, args, plataformas } (plataformas que aceitam) ou { erro }.
@@ -57,14 +58,13 @@ const ROTULO_DO_ALERTA = {
 };
 
 const mesmoUsuario = (item, nome, plataforma) => item.tipo === 'chat' && item.plataforma === plataforma && item.nome.toLowerCase() === String(nome).toLowerCase();
-const passaNaAba = (item, aba) => (aba === 'tudo' ? true : aba === 'alertas' ? item.tipo === 'alerta' : item.tipo === 'chat' && item.plataforma === aba);
 
 // memo: uma linha só refaz quando o seu item muda (as atualizações mantêm a identidade das demais).
 const Linha = memo(function Linha({ item, aoMenu, aoRapida }) {
   const plat = plataformaDe(item.plataforma);
   if (item.tipo === 'alerta') {
     return (
-      <div className="linha linha-alerta" style={{ '--cor-plataforma': plat.cor }}>
+      <div className={`linha linha-alerta${item.evento === 'reward' ? ' linha-resgate' : ''}`} style={{ '--cor-plataforma': plat.cor }}>
         <span className="hora">{item.hora}</span>
         <span className="marca-plataforma"><IconePlataforma id={item.plataforma} /></span>
         <div className="conteudo">
@@ -157,8 +157,10 @@ export default function ChatPanel({ ativas, conectado }) {
       const n = novos.filter(i => passaRef.current(i)).length;
       if (n) setNovas(v => v + n);
     };
-    const alertaDaPlataforma = (plataforma, nome, rotulo, detalhe = '') => ({
-      uid: ++contador.current, tipo: 'alerta', plataforma, nome, rotulo, detalhe, hora: hora(),
+    // `evento` é o tipo do alerta (valor de `event` em streamerbot.js); os avisos de moderação do dock (banido, silenciado e chat
+    // limpo) usam 'moderacao'. Quais tipos aparecem na aba Tudo: alertas.js.
+    const alertaDaPlataforma = (plataforma, nome, rotulo, detalhe = '', evento = 'moderacao') => ({
+      uid: ++contador.current, tipo: 'alerta', plataforma, nome, rotulo, detalhe, evento, hora: hora(),
     });
 
     return assinarStreamerbot(ev => {
@@ -179,7 +181,7 @@ export default function ChatPanel({ ativas, conectado }) {
           const rotulo = a.rotulo || ROTULO_DO_ALERTA[a.event] || '';
           const nome = a.principal || a.chatname;
           const detalhe = [a.destaque, a.detalhe].filter(Boolean).join(' · ');
-          const item = alertaDaPlataforma(a.type, nome, rotulo, detalhe);
+          const item = alertaDaPlataforma(a.type, nome, rotulo, detalhe, a.event);
           setItens(l => acrescenta(l, [item]));
           contaNovas([item]);
           break;

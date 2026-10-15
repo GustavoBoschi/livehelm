@@ -1,7 +1,7 @@
 # LiveHelm: regras para quem mexe no código
 
-Dock de navegador do OBS em React (Vite), de arquivo único: título e categoria, tags da Twitch, momentos, enquetes e previsões e
-chat com moderação. Fala com o Streamer.bot (WebSocket) e com o OBS (obs-websocket v5). Uso e instalação estão no
+Dock de navegador do OBS em React (Vite), de arquivo único: título e categoria, tags da Twitch, momentos, enquetes e previsões,
+chat com moderação e aviso de anúncio da Twitch. Fala com o Streamer.bot (WebSocket) e com o OBS (obs-websocket v5). Uso e instalação estão no
 [README.md](README.md) e em [docs/INSTRUCOES.md](docs/INSTRUCOES.md); este arquivo guarda só o que é preciso saber para expandir o
 código sem quebrar nada.
 
@@ -20,6 +20,8 @@ código sem quebrar nada.
   dentro da página (o Banir usa a barra `#confirmacao`).
 - **Arquivo único:** o build inlina tudo (`vite-plugin-singlefile`). Nada de imagens ou scripts ao lado; ícones e imagens entram
   inline (SVG ou `data:`).
+- **Recurso que mexe na live vem desligado:** o aviso de anúncio, que pode adiar um anúncio de verdade, só liga nas configurações
+  (`config.anuncio.ligado`). Faça o mesmo com qualquer recurso novo desse tipo.
 - **Nada sensível no repositório:** `src/config.js` fica com as senhas vazias. Sem caminhos, contas ou endereços pessoais em código,
   comentários ou documentação. A única identificação pessoal permitida é o crédito de autoria (`LICENSE`, seção "Licença e créditos"
   do README e `author` do `package.json`), inclusive a coautoria do Claude no README e em `contributors`: não os remova.
@@ -34,6 +36,7 @@ argumento têm que ser idênticos nos dois lados.** Mudou um, mude o outro e a t
 | `Painel: Twitch`, `Painel: Kick`, `Painel: YouTube` | `tituloLive`, `categoriaLive` |
 | `Painel: Tags` | `acao` (`ler`, `definir`, `limpar`; sem `acao` vale `definir`), `tagsLive` (separadas por `\|`), `pedido` |
 | `Painel: Momentos` | `linha`, `arquivo`, `pasta` |
+| `Painel: Anuncio` (**sem acento** e **sem código**: só a sub-ação `Twitch > Ads > Snooze Next Ad`) | nenhum |
 | `Painel: Chat` | `acao` (`enviar`, `apagar`, `silenciar`, `banir`, `reverter`, `limpar`, `enquete`, `previsao`, `encerrar_enquete`, `travar_previsao`, `cancelar_previsao`, `resolver_previsao`), `plataforma`, `mensagem`, `mensagemId`, `usuario`, `usuarioId`, `segundos`, `titulo`, `opcoes`, `duracao`, `id`, `vencedorId` |
 
 - O código C# é conferido contra `Streamer.bot.Plugin.Interface.dll` (métodos `CPH`, versão 1.0.7). Ao mudar, recompile contra ela;
@@ -57,6 +60,10 @@ argumento têm que ser idênticos nos dois lados.** Mudou um, mude o outro e a t
   `title`, `categoryName`), convertidos em `atualizacao` e entregues por `notificarAtualizacao`.
 - `converterEventoStreamerbot` é puro. Campos sem esquema documentado são lidos de forma defensiva (vários candidatos, vazio se
   faltar). Só `Twitch.ChatMessage`, `Kick.ChatMessage` e `Twitch.Follow` foram vistos com dados reais.
+- `Twitch.UpcomingAd` dispara **uma vez por minuto nos 5 minutos** antes do anúncio. Segundo a documentação do Streamer.bot traz
+  `minutes`, `nextAdAt` (hora exata, UTC), `adLength` (s) e `snoozesLeft`; `streamerbot.js` os lê (`segundosDe`, `anuncioDe`) e o
+  alerta leva `segundos` e `anuncio`. O formato no WebSocket ainda não foi visto com um anúncio real: confirme (Test Trigger no
+  Streamer.bot) antes de mudar a leitura.
 - A conexão com o OBS (`obs.js`) abre, autentica, pergunta e fecha a cada uso. O tempo vale o da transmissão; sem transmissão, o da
   gravação.
 
@@ -64,9 +71,9 @@ argumento têm que ser idênticos nos dois lados.** Mudou um, mude o outro e a t
 
 - Preferências usam `ler`/`gravar` (`armazenamento.js`, prefixo `livehelm.`), que nunca lançam: sem armazenamento, o dock só não
   lembra de nada.
-- Configurações ficam em `configuracoes.js`, **por seção** (`lerConfig` mescla o salvo com o padrão seção por seção). Opção nova =
-  seção nova ali e um bloco em `Configuracoes.jsx`. Endereço e senha: a URL (`?streamerbot=`, `?sbsenha=`) vale antes do salvo, e
-  este antes de `config.js`.
+- Configurações ficam em `configuracoes.js`, **por seção** (`lerConfig` mescla o salvo com o padrão seção por seção): `tema`,
+  `streamerbot`, `obs`, `momentos` e `anuncio`. Opção nova = seção nova ali e um bloco em `Configuracoes.jsx`. Endereço e senha: a URL
+  (`?streamerbot=`, `?sbsenha=`) vale antes do salvo, e este antes de `config.js`.
 - O tema é escrito por `aplicarTema` em variáveis CSS no `<html>` (`--acento`, `--acento-claro`, `--acento-rgb`,
   `--acento-texto` e as de fundo), e `main.jsx` o aplica antes do primeiro quadro. O CSS usa `rgba(var(--acento-rgb), x)`, nunca
   uma cor de destaque fixa.
@@ -80,6 +87,19 @@ argumento têm que ser idênticos nos dois lados.** Mudou um, mude o outro e a t
 - **Chat** (`ChatPanel.jsx`, `punicoes.js`): `punicoes.js` junta o que o dock fez e o que a plataforma avisou. O verbo `reverter`
   responde ok mesmo com código antigo, então o item só ganha a hora do pedido. O feed guarda no máximo `MAX_ITENS` linhas. O dock
   assina os eventos direto e recebe mesmo com o painel escondido.
+- **Abas do chat** (`alertas.js`, puro): a aba Tudo mostra as mensagens e só os alertas de `ALERTAS_NO_CHAT_GERAL` (seguidor, subs,
+  presentes, Bits, raid, resgate de pontos, Hype Chat, Super Chat e afins). É uma lista **permitida**: um alerta novo de `ALERTAS` (em
+  `streamerbot.js`) fica só na aba Alertas até entrar nela. Anúncio, hype train, votação, previsão e os avisos de moderação do dock
+  (`evento: 'moderacao'`: banido, silenciado, chat limpo) também ficam só nessa aba, que mostra todos os alertas. `ChatPanel.jsx`
+  guarda o tipo no item (`evento`) e usa `passaNaAba`; o resgate de pontos ganha a classe `linha-resgate` (fundo na cor da plataforma).
+- **Aviso de anúncio** (`AvisoAnuncio.jsx`, `anuncios.js`): pop-up de uma linha, fixo por cima do dock e montado no `App`, então não
+  depende do painel de chat estar visível. É pequeno de propósito para cobrir o mínimo do chat. `anuncios.js` (puro) guarda o último
+  aviso `upcoming_ad` (`alerta.anuncio`: `quandoMs`, `duracaoS`, `adiamentos`) e decide quando mostrar (`deveMostrar`: faltando
+  `antecedencia` s ou menos, até 3 s depois da hora). "Deixar rodar" (`dispensar`) vale para os avisos seguintes do mesmo anúncio
+  (horas a menos de 45 s uma da outra). "Adiar" (`adiado`) assume +5 min e −1 adiamento na hora: o pedido sai pela ação
+  `Painel: Anuncio` (`adiarAnuncio` em `acoes.js`), que o Streamer.bot responde "ok" sem dizer se a Twitch aceitou, e o próximo aviso
+  corrige a hora. A Twitch só **adia 5 min** (não cancela) e só ela tem o aviso. O botão "Testar o aviso" das configurações mostra um
+  anúncio de mentira (`teste: true`) sem chamar a ação.
 - **Enquetes e previsões** (`Interacoes.jsx`): a que está no ar vem de `alerta.interacao` (id e opções com id, montados em
   `streamerbot.js`); os controles são os verbos `encerrar_enquete`, `travar_previsao`, `resolver_previsao` e `cancelar_previsao`.
 
@@ -97,7 +117,8 @@ diante) e de `global.ini` (anteriores), com cópia `.livehelm.bak` na primeira v
 
 ## Testes
 
-- Lógica pura (sem React, rede ou DOM) vive em módulos testáveis, com testes em `tests/*.test.js` (`node --test`).
+- Lógica pura (sem React, rede ou DOM) vive em módulos testáveis, com testes em `tests/*.test.js` (`node --test`): `alertas.js`,
+  `anuncios.js`, `pastaClipes.js`, `tagsLista.js` e `converterEventoStreamerbot` (`streamerbot.js`).
 - Dependência de rede entra por parâmetro (como `aguardarLeitura(buscar, ...)`), para testar sem WebSocket.
 - Formato de resposta de um serviço externo: ao descobri-lo, vire teste com a **resposta real** como exemplo. Um servidor falso que
   usa a suposição do código só confirma a suposição.

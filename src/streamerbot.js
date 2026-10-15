@@ -59,7 +59,28 @@ function vencedorDe(d) {
   return ganhador ? nomeDoItem(ganhador) : '';
 }
 const SEGUNDOS_ANUNCIO_PADRAO = 60; // quando o aviso de anúncio não diz em quanto tempo ele entra
-const segundosDe = d => numero(d.secondsUntilNextAd, d.secondsUntil, d.seconds, d.nextAdIn, d.duration);
+// Segundos até o anúncio. O gatilho Upcoming Ad do Streamer.bot dispara uma vez por minuto nos 5 minutos antes dele e traz
+// `nextAdAt` (hora exata), `minutes`, `adLength` (segundos) e `snoozesLeft`; os outros nomes são candidatos sem esquema documentado.
+function segundosDe(d) {
+  const hora = Date.parse(texto(d.nextAdAt));
+  if (Number.isFinite(hora)) return Math.max(0, Math.round((hora - Date.now()) / 1000));
+  const minutos = numero(d.minutes);
+  if (minutos !== null) return minutos * 60;
+  return numero(d.secondsUntilNextAd, d.secondsUntil, d.seconds, d.nextAdIn, d.duration);
+}
+const tempoAteOAnuncio = s => (s === null ? 'Em breve' : s >= 60 ? `Em ${Math.round(s / 60)} min` : `Em ${s} s`);
+// O que o aviso de anúncio da tela precisa: a hora do anúncio (ms; a exata quando vem, senão agora mais o que falta), a duração (s)
+// e os adiamentos restantes (nulos quando o evento não diz).
+function anuncioDe(d) {
+  const hora = Date.parse(texto(d.nextAdAt));
+  const segundos = segundosDe(d);
+  return {
+    quandoMs: Number.isFinite(hora) ? hora : Date.now() + (segundos === null ? SEGUNDOS_ANUNCIO_PADRAO : segundos) * 1000,
+    duracaoS: numero(d.adLength),
+    adiamentos: numero(d.snoozesLeft),
+  };
+}
+const adiamentosTexto = n => (n === null ? '' : `${n} ${n === 1 ? 'adiamento restante' : 'adiamentos restantes'}`);
 
 // Peças dos textos dos alertas. Os campos de nível e de meses de sub não têm esquema documentado: vários candidatos.
 function tierDe(d) {
@@ -152,7 +173,11 @@ const ALERTAS = {
   'Twitch.PredictionLocked': abertura('prediction', 'Previsão travada'),
   'Twitch.PredictionCompleted': encerrada('prediction', 'Previsão encerrada'),
   'Twitch.PredictionCanceled': cancelada('prediction', 'Previsão cancelada'),
-  'Twitch.UpcomingAd': { event: 'upcoming_ad', nome: d => (segundosDe(d) === null ? 'Em breve' : `Em ${segundosDe(d)} s`) },
+  'Twitch.UpcomingAd': {
+    event: 'upcoming_ad',
+    nome: d => tempoAteOAnuncio(segundosDe(d)),
+    detalhe: d => juntarLinha(numero(d.adLength) === null ? '' : `Dura ${numero(d.adLength)} s`, adiamentosTexto(numero(d.snoozesLeft))),
+  },
   'Twitch.HypeTrainLevelUp': { event: 'hype_train', nome: d => (numero(d.level, d.newLevel) === null ? 'Subiu de nível!' : `Nível ${numero(d.level, d.newLevel)}!`) },
 };
 
@@ -273,6 +298,7 @@ export function converterEventoStreamerbot(msg) {
         acao: alerta.acao ? alerta.acao(data) : '',
         destaque: alerta.destaque ? alerta.destaque(data) : '',
         segundos: alerta.event === 'upcoming_ad' ? (segundosDe(data) || SEGUNDOS_ANUNCIO_PADRAO) : undefined,
+        anuncio: alerta.event === 'upcoming_ad' ? anuncioDe(data) : undefined,
         meta: { origem: 'streamerbot', evento: chave, quando },
         interacao: EVENTOS_DE_INTERACAO.has(chave) ? interacaoDe(type, data) : undefined,
       },

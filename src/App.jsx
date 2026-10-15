@@ -16,6 +16,7 @@ import ChatPanel from './ChatPanel.jsx';
 import Interacoes from './Interacoes.jsx';
 import Momentos from './Momentos.jsx';
 import Configuracoes from './Configuracoes.jsx';
+import AvisoAnuncio from './AvisoAnuncio.jsx';
 
 const ATUALIZACAO_MS = 15000; // de quanto em quanto tempo relê as ações e as plataformas conectadas
 const PAINEIS = [
@@ -142,6 +143,7 @@ export default function App() {
         )}
       </header>
       {aviso && <p className="aviso aviso-faixa" id="aviso-conexao">{aviso}</p>}
+      <AvisoAnuncio nomesDeAcoes={nomesDeAcoes} />
       {configAberta ? <Configuracoes conectado={conectado} recusa={recusa} onVoltar={() => setConfigAberta(false)} /> : (
         <>
           {paineis.live && <LivePanel ativas={ativas} conectado={conectado} nomesDeAcoes={nomesDeAcoes} />}

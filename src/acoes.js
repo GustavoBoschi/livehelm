@@ -13,6 +13,7 @@ const ROTULO_DO_VERBO = { enviar: 'Enviar', silenciar: 'Silenciar', banir: 'Bani
 const ACAO_TAGS = 'Painel: Tags';
 const VARIAVEL_DE_TAGS = 'painelTags'; // global não persistente que a Painel: Tags escreve ao ler as tags do canal
 const ACAO_MOMENTOS = 'Painel: Momentos';
+const ACAO_ANUNCIO = 'Painel: Anuncio'; // sem acento de propósito: o nome tem que ser idêntico nos dois lados
 const CONFIRMACAO_MS = 7000; // quanto esperar o aviso que confirma o título e a categoria
 
 let acoes = null; // ações do Streamer.bot ([{ id, name }]); null = ainda não carregou
@@ -42,6 +43,8 @@ export const temAcaoDeTags = nomes => (nomes || []).includes(ACAO_TAGS);
 export const temAcaoDeMomentos = nomes => (nomes || []).includes(ACAO_MOMENTOS);
 export const NOME_DA_ACAO_DE_TAGS = ACAO_TAGS;
 export const NOME_DA_ACAO_DE_MOMENTOS = ACAO_MOMENTOS;
+export const temAcaoDeAnuncio = nomes => (nomes || []).includes(ACAO_ANUNCIO);
+export const NOME_DA_ACAO_DE_ANUNCIO = ACAO_ANUNCIO;
 
 // null se deu certo; senão o motivo.
 async function executar(acao, args) {
@@ -125,6 +128,15 @@ export async function lerTags() {
   if (erro) return { ok: false, tags: [], erro };
   const leitura = await aguardarLeitura(() => pedirStreamerbot({ request: 'GetGlobal', variable: VARIAVEL_DE_TAGS, persisted: false }), pedido);
   return leitura || { ok: false, tags: [], erro: 'sem resposta da ação (cole o código novo de Painel-Tags.cs no Streamer.bot)' };
+}
+
+// Pede à Twitch que adie o próximo anúncio em 5 minutos, pela ação `Painel: Anuncio` (só tem a sub-ação Twitch > Ads > Snooze Next
+// Ad, sem argumentos). null se o pedido foi aceito pelo Streamer.bot, que não diz se a Twitch concordou (acabaram os adiamentos, por
+// exemplo): quem mostra o resultado é o próximo aviso de anúncio.
+export async function adiarAnuncio() {
+  const acao = achar(ACAO_ANUNCIO);
+  if (!acao) return `falta a ação “${ACAO_ANUNCIO}” no Streamer.bot (Instruções, “Painel: Anuncio”)`;
+  return executar(acao, {});
 }
 
 // Pede ao Streamer.bot que acrescente a linha no arquivo de clipes (args: linha, arquivo, pasta). null se deu certo.

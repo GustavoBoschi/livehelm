@@ -198,6 +198,26 @@ No alto do código há a constante **`USAR_BOT`**. Com `false` (o padrão), as m
 
 **Sem as ações, o chat funciona só para ler.** Ler o chat e os alertas não depende de nenhuma ação, só do WebSocket ligado.
 
+Na aba **Tudo** do chat aparecem as mensagens e só os alertas principais (seguidor, sub, presente, apoio, resgate de pontos e raid).
+O aviso de anúncio (a Twitch avisa uma vez por minuto nos 5 minutos antes), o hype train, as votações, as previsões e os avisos de
+moderação (banido, silenciado e chat limpo) aparecem só na aba **Alertas**.
+
+### `Painel: Anuncio`: adiar o anúncio da Twitch (opcional)
+
+Receita de **ação sem código**. O nome é **sem acento**, exatamente `Painel: Anuncio`.
+
+| Sub-ação | Campo | Valor |
+|---|---|---|
+| `Twitch > Ads > Snooze Next Ad` | (nenhum) | |
+
+Ela só serve ao botão **Adiar 5 min** do aviso de anúncio (veja a [seção 6](#6-configurar-o-dock)). Sem ela, o aviso funciona e só o
+botão de adiar fica desligado.
+
+> **Sobre o adiamento:** a Twitch não deixa cancelar um anúncio, só **adiar em 5 minutos**, e só enquanto ainda houver adiamentos (o
+> aviso mostra quantos restam). O Streamer.bot precisa estar conectado à Twitch com a permissão de gerenciar anúncios; se o botão não
+> adiar, entre de novo em `Platforms > Twitch > Accounts` (**Broadcaster Account**, **Login**) e aceite as permissões. O Streamer.bot
+> não responde se a Twitch aceitou, então o aviso confere isso no próximo anúncio.
+
 #### Opcional, sem código
 
 Enviar, silenciar e banir também existem como sub-ações prontas em cada plataforma. Se preferir, crie uma ação por combinação,
@@ -266,6 +286,11 @@ Clique na **bolinha de estado** (a verde, amarela ou vermelha, no canto de cima)
 | **Streamer.bot** | **Endereço** (`ws://127.0.0.1:8080`) e **Senha** (a do passo 2.3, ou vazia). Clique em **Salvar e reconectar** |
 | **OBS** | **Endereço** (`ws://127.0.0.1:4455`) e **Senha** (a do passo 4, ou vazia). **Salvar e testar** mostra o tempo atual da live |
 | **Marcação de momentos** | **Dar título a cada clipe** e a **pasta** dos arquivos (vazia: a pasta `Clipes` ao lado do dock, ou seja, `%LOCALAPPDATA%\LiveHelm\Clipes` no dock instalado; se escolher outra, use o caminho completo, como `C:\Clipes`) |
+| **Aviso de anúncio (Twitch)** | **Avisar antes de cada anúncio** (vem desligado) e com quantos segundos de antecedência (15, 30, 45 ou 60). **Testar o aviso** mostra o pop-up de mentira, sem falar com a Twitch |
+
+O **aviso de anúncio** é um pop-up por cima do dock com a contagem regressiva e dois botões: **Adiar 5 min** (usa a ação
+`Painel: Anuncio`, [seção 3](#painel-anuncio-adiar-o-anúncio-da-twitch-opcional)) e **Deixar rodar**, que dispensa o aviso daquele
+anúncio. Só existe para a Twitch: o Streamer.bot não avisa de anúncios da Kick nem do YouTube.
 
 Se você deixou tudo no padrão e sem senha, normalmente não precisa mudar nada além de abrir o Streamer.bot e o OBS.
 
@@ -298,6 +323,8 @@ nas configurações do dock, então prefira a tela de configurações).
 | Bolinha **amarela** | Uma plataforma ligada no alto não está conectada no Streamer.bot. Entre com a conta dela (seção 2.2) ou desligue a plataforma no alto do dock. |
 | "Faltam ações no Streamer.bot: …" | O Streamer.bot não tem uma ação com o nome **EXATAMENTE igual** ao esperado: o dock compara letra por letra, então `Painel: Youtube`, `Painel:YouTube` ou um espaço no fim não valem. Copie o nome das Instruções, confirme com **Ok** a janela da sub-ação e espere até 15 s (o dock relê a lista a cada 15 s). Se você não usa aquela plataforma, desligue o botão dela no alto do dock e o aviso some. |
 | O título do YouTube não muda (e não aparece erro) | Duas causas comuns: o **Broadcast** da sub-ação `YouTube > Set Title` está em **From Variable** (troque para **All**), ou o YouTube não está conectado no Streamer.bot (a janela da sub-ação mostra **Not Connected** e o pontinho do YouTube no alto do dock fica cinza; entre em `Platforms > YouTube > Accounts`, seção 2.2). |
+| O aviso de anúncio não aparece | Ele vem desligado: ligue em **Configurações > Aviso de anúncio**. Use **Testar o aviso** para ver o pop-up. O Streamer.bot só avisa de anúncios da Twitch, uma vez por minuto nos 5 minutos antes. |
+| O botão Adiar 5 min está apagado ou não adia | Falta a ação `Painel: Anuncio` (sem acento, [seção 3](#painel-anuncio-adiar-o-anúncio-da-twitch-opcional)), ou a Twitch não tem mais adiamentos (o aviso mostra quantos restam), ou o Streamer.bot precisa entrar de novo na Twitch para ganhar a permissão de gerenciar anúncios. |
 | Mensagens ou alertas da Kick não chegam | Ligue a conta da Kick também no site do Streamer.bot (**Account > Connections**), além do login no aplicativo, e **reinicie o Streamer.bot** depois de conectar com o site. |
 | Tags: "sem resposta da ação (cole o código novo…)" | A ação `Painel: Tags` está com um código antigo ou não compilou. Cole [`Painel-Tags.cs`](../acoes-streamerbot/Painel-Tags.cs) de novo e use **Save and Compile**. |
 | Tags: "nao consegui ler o canal" | A Twitch não está conectada como **Broadcaster** no Streamer.bot (seção 2.2). |

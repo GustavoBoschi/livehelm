@@ -210,6 +210,8 @@ button.link { border: 0; background: transparent; color: var(--acento-claro); pa
 .linha:hover { background: rgba(255, 255, 255, 0.04); }
 .linha-alerta { border-left-color: var(--cor-plataforma); background: rgba(255, 255, 255, 0.03); color: var(--suave); }
 .linha-primeira { background: color-mix(in srgb, var(--cor-plataforma) 12%, transparent); }
+/* Resgate de pontos: o fundo na cor da plataforma o destaca dos outros alertas. */
+.linha-resgate, .linha-resgate:hover { background: color-mix(in srgb, var(--cor-plataforma) 26%, transparent); color: var(--texto); }
 .hora { flex-shrink: 0; color: var(--suave); font-size: 11.5px; padding-top: 1px; }
 .marca-plataforma { flex-shrink: 0; color: var(--cor-plataforma); padding-top: 2px; display: flex; }
 .conteudo { flex: 1; min-width: 0; }
@@ -329,3 +331,34 @@ button.link { border: 0; background: transparent; color: var(--acento-claro); pa
 /* ---- Momentos ---- */
 .lista-momentos { margin: 0; padding: 0; list-style: none; max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; font-variant-numeric: tabular-nums; font-size: 12.5px; }
 .lista-momentos li { padding: 3px 8px; border-radius: 6px; background: var(--elevado); }
+
+/* ---- Aviso de anúncio ---- */
+select {
+    height: 30px;
+    padding: 0 8px;
+    border: 1px solid var(--borda-forte);
+    border-radius: 8px;
+    background: var(--campo);
+    outline: none;
+}
+select:focus { border-color: var(--acento); }
+.aviso-anuncio {
+    position: fixed;
+    z-index: 40;
+    top: 42px;
+    left: 8px;
+    right: 8px;
+    padding: 4px 8px;
+    border: 1px solid rgba(var(--acento-rgb), 0.7);
+    border-radius: 9px;
+    background: var(--elevado);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
+}
+.anuncio-linha { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; min-width: 0; color: var(--acento-claro); }
+.anuncio-titulo { font-size: 11.5px; font-weight: 600; }
+.anuncio-tempo { color: var(--texto); font-size: 15px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.anuncio-teste { padding: 0 5px; border: 1px solid var(--borda-forte); border-radius: 6px; color: var(--suave); font-size: 10px; }
+.anuncio-botoes { display: flex; gap: 4px; margin-left: auto; }
+.anuncio-botoes button { height: 22px; padding: 0 8px; border: 1px solid var(--borda-forte); border-radius: 6px; background: var(--elevado-sobre); font-size: 11.5px; white-space: nowrap; }
+.anuncio-botoes button.primario { border: 0; background: var(--acento); }
+.aviso-anuncio .status { padding: 2px 0 0; font-size: 11px; }

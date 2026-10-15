@@ -5,6 +5,8 @@ import { useState } from 'react';
 import { ACENTOS, FUNDOS, aplicarTema, gravarSecao, lerConfig, pastaPadraoDosClipes } from './configuracoes.js';
 import { reconectarStreamerbot } from './streamerbot.js';
 import { tempoDoOBS, formatarTempo } from './obs.js';
+import { testarAvisoDeAnuncio } from './AvisoAnuncio.jsx';
+import { NOME_DA_ACAO_DE_ANUNCIO } from './acoes.js';
 
 export default function Configuracoes({ conectado, recusa, onVoltar }) {
   const [config, setConfig] = useState(lerConfig);
@@ -24,6 +26,11 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
     const momentos = { ...config.momentos, ...parte };
     gravarSecao('momentos', momentos);
     setConfig({ ...config, momentos });
+  }
+  function mudarAnuncio(parte) {
+    const anuncio = { ...config.anuncio, ...parte };
+    gravarSecao('anuncio', anuncio);
+    setConfig({ ...config, anuncio });
   }
   function salvarStreamerbot() {
     const valores = { url: sb.url.trim() || config.streamerbot.url, senha: sb.senha };
@@ -104,6 +111,20 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
         <label className="rotulo" htmlFor="config-pasta">Pasta dos arquivos de clipes</label>
         <input id="config-pasta" type="text" value={config.momentos.pasta} spellCheck={false} placeholder={padraoDaPasta || 'Documentos\\LiveHelm\\Clipes'}
                onChange={e => mudarMomentos({ pasta: e.target.value })} />
+      </div>
+
+      <div className="config-secao">
+        <h3>Aviso de anúncio (Twitch)</h3>
+        <label className="opcao-linha" htmlFor="config-anuncio-ligado">
+          <input id="config-anuncio-ligado" type="checkbox" checked={config.anuncio.ligado} onChange={e => mudarAnuncio({ ligado: e.target.checked })} />
+          Avisar antes de cada anúncio
+        </label>
+        <label className="rotulo" htmlFor="config-anuncio-antecedencia">Avisar quando faltarem</label>
+        <select id="config-anuncio-antecedencia" value={config.anuncio.antecedencia} onChange={e => mudarAnuncio({ antecedencia: Number(e.target.value) })}>
+          {[15, 30, 45, 60].map(s => <option key={s} value={s}>{s} segundos</option>)}
+        </select>
+        <p className="dica">O botão <b>Adiar 5 min</b> precisa da ação <b>{NOME_DA_ACAO_DE_ANUNCIO}</b> no Streamer.bot (veja as Instruções).</p>
+        <button type="button" id="config-anuncio-testar" className="primario" onClick={testarAvisoDeAnuncio}>Testar o aviso</button>
       </div>
     </section>
   );
