@@ -47,8 +47,9 @@ No Streamer.bot, vá em **Platforms** e entre com a conta do canal em cada plata
 - **Twitch:** `Platforms > Twitch > Accounts`, em **Broadcaster Account** aperte **Login** e aceite as permissões.
 - **YouTube:** `Platforms > YouTube > Accounts`, em **Broadcaster Account** aperte **Sign in with Google**, aceite as permissões e
   ligue **Auto Connect**.
-- **Kick:** `Platforms > Kick`, entre com a conta do canal. Se alertas de seguidor da Kick não chegarem, ligue também a conta da
-  Kick no site do Streamer.bot (**Account > Connections**), além do login no aplicativo.
+- **Kick:** `Platforms > Kick`, entre com a conta do canal. Depois ligue também a conta da Kick no site do Streamer.bot
+  (**Account > Connections**), pois as mensagens do chat e os alertas da Kick dependem desse login do site, além do login no
+  aplicativo. **Depois de conectar com o site, reinicie o Streamer.bot** (feche e abra de novo); sem isso ele não passa a receber a Kick.
 
 A conta **Bot** é opcional. Ela só serve se você quiser que as mensagens enviadas pelo dock saiam com o nome do bot (veja
 `USAR_BOT` na [seção 3](#painel-chat-chat-moderação-enquetes-e-previsões)).
@@ -297,7 +298,7 @@ nas configurações do dock, então prefira a tela de configurações).
 | Bolinha **amarela** | Uma plataforma ligada no alto não está conectada no Streamer.bot. Entre com a conta dela (seção 2.2) ou desligue a plataforma no alto do dock. |
 | "Faltam ações no Streamer.bot: …" | O Streamer.bot não tem uma ação com o nome **EXATAMENTE igual** ao esperado: o dock compara letra por letra, então `Painel: Youtube`, `Painel:YouTube` ou um espaço no fim não valem. Copie o nome das Instruções, confirme com **Ok** a janela da sub-ação e espere até 15 s (o dock relê a lista a cada 15 s). Se você não usa aquela plataforma, desligue o botão dela no alto do dock e o aviso some. |
 | O título do YouTube não muda (e não aparece erro) | Duas causas comuns: o **Broadcast** da sub-ação `YouTube > Set Title` está em **From Variable** (troque para **All**), ou o YouTube não está conectado no Streamer.bot (a janela da sub-ação mostra **Not Connected** e o pontinho do YouTube no alto do dock fica cinza; entre em `Platforms > YouTube > Accounts`, seção 2.2). |
-| Alertas de seguidor da Kick não chegam | Ligue a conta da Kick também no site do Streamer.bot (**Account > Connections**), além do login no aplicativo. |
+| Mensagens ou alertas da Kick não chegam | Ligue a conta da Kick também no site do Streamer.bot (**Account > Connections**), além do login no aplicativo, e **reinicie o Streamer.bot** depois de conectar com o site. |
 | Tags: "sem resposta da ação (cole o código novo…)" | A ação `Painel: Tags` está com um código antigo ou não compilou. Cole [`Painel-Tags.cs`](../acoes-streamerbot/Painel-Tags.cs) de novo e use **Save and Compile**. |
 | Tags: "nao consegui ler o canal" | A Twitch não está conectada como **Broadcaster** no Streamer.bot (seção 2.2). |
 | Momentos: "o OBS não respondeu" | O servidor WebSocket do OBS está desligado ou o endereço está errado (seção 4). Use **Salvar e testar** nas configurações. |
