@@ -315,6 +315,11 @@ nas configurações do dock, então prefira a tela de configurações).
 5. **Momentos:** com a live ou a gravação rodando, clique em **Marcar momento**. Uma linha nova entra em
    `Clipes - <título da live>.txt`.
 6. **Chat/moderação:** passe o mouse sobre uma mensagem para ver os botões; envie uma mensagem de teste pela caixa de baixo.
+7. **Alertas:** na aba **Alertas** do chat aparecem seguidores, subs, raids e resgates de pontos (na Twitch e na Kick, o resgate vem
+   com um fundo na cor da plataforma). Se um tipo que você quer não aparece na aba **Tudo**, marque-o em **Configurações > Alertas
+   no chat**.
+8. **Aviso de anúncio (opcional):** ligue em **Configurações > Aviso de anúncio** e clique em **Testar o aviso**: o pop-up aparece no
+   alto do dock. Para o **Adiar 5 min** funcionar de verdade, crie antes a ação [`Painel: Anuncio`](#painel-anuncio-adiar-o-anúncio-da-twitch-opcional).
 
 ## 8. Problemas comuns
 

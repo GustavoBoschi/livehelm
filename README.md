@@ -38,7 +38,10 @@ no seu computador: não há servidor, conta, cadastro nem chave de API.
 - **Confirmação de verdade:** depois de mudar título e categoria, o painel espera a plataforma avisar e mostra o que ela
   realmente aplicou (amarelo quando ficou diferente do digitado).
 - **Chat com moderação:** apagar, silenciar e banir com um clique, desfazer punições, busca, filtro por usuário, mensagens
-  fixadas e alertas no mesmo feed.
+  fixadas e alertas no mesmo feed, com **resgates de pontos** (Twitch e Kick) em destaque e **você escolhendo** quais alertas
+  aparecem em cada aba.
+- **Aviso de anúncio da Twitch:** um pop-up pequeno com a contagem regressiva e o botão **Adiar 5 min**, para o anúncio não pegar
+  você no meio de uma cena.
 - **Tags da Twitch que você vê e edita:** o painel lê as tags atuais do canal, e você exclui ou adiciona antes de aplicar.
 - **Marcação de momentos:** um clique anota o tempo da live num arquivo de texto, para você achar os melhores trechos depois.
 - **Instala em dois cliques** (Windows) e **não precisa de nada instalado** além do OBS e do Streamer.bot.
@@ -153,18 +156,24 @@ Mensagens e alertas das três plataformas num feed só, com abas **Tudo**, **Twi
 
 - **Leitura:** cor do nome, insígnias e emotes (quando a plataforma os entrega como imagem), marca de **primeira mensagem** e
   mensagens apagadas ou de quem foi punido **riscadas**. O feed guarda as últimas 400 linhas.
-- **Alertas** no mesmo feed: a aba **Tudo** mostra, junto das mensagens, só o que importa na hora: seguidores, inscrições (novas,
-  renovações e presentes), Bits, raids, resgates de pontos, Hype Chat, Super Chat, Super Sticker, presentes e membros. Hype train,
-  enquetes e previsões, o **aviso de anúncio** (a Twitch avisa uma vez por minuto nos 5 minutos antes) e os avisos de moderação
-  (banido, silenciado, chat limpo) aparecem só na aba **Alertas**, que mostra todos. A lista fica em `src/alertas.js`. As abas **Twitch**, **Kick** e **YouTube** mostram o mesmo que a **Tudo**, só daquela plataforma. Em **Configurações > Alertas no chat** você
-  escolhe, tipo por tipo, quais alertas aparecem na **Tudo** e nas abas de plataforma (a aba **Alertas** mostra todos, sempre); o padrão é o
-  descrito acima e há o botão **Voltar ao padrão**. O **resgate de
-  pontos** (da Twitch, inclusive as recompensas padrão como mensagem em destaque, emotes e efeitos, e da Kick) ganha um fundo na cor
-  da plataforma para se destacar dos outros alertas.
-- **Aviso de anúncio (Twitch):** um pop-up compacto (uma linha de 32 px) por cima do dock, com a contagem regressiva, quando faltam 15,
-  30, 45 ou 60 segundos para o anúncio. **Adiar 5 min** empurra o anúncio (a Twitch só permite adiar, não cancelar, e enquanto houver adiamentos) pela ação
-  `Painel: Anuncio`; **Deixar rodar** dispensa o aviso. Vem **desligado**, em Configurações > Aviso de anúncio, onde também há o
-  botão **Testar o aviso**.
+- **Alertas** no mesmo feed: a aba **Alertas** mostra todos, sempre. A aba **Tudo** mostra, junto das mensagens, só o que importa
+  na hora: seguidores, inscrições (novas, renovações e presentes), Bits, raids, resgates de pontos, Hype Chat, Super Chat, Super
+  Sticker, presentes e membros. Hype train, enquetes e previsões, o **aviso de anúncio** (a Twitch avisa uma vez por minuto nos 5
+  minutos antes) e os avisos de moderação (banido, silenciado, chat limpo) ficam só na aba **Alertas**. As abas **Twitch**,
+  **Kick** e **YouTube** mostram o mesmo que a **Tudo**, só daquela plataforma. A lista de partida fica em
+  [`src/alertas.js`](src/alertas.js).
+- **Você escolhe o que aparece:** em **Configurações > Alertas no chat** (veja [abaixo](#configurações-e-tema)) cada tipo de alerta
+  tem uma caixa que o liga ou desliga na **Tudo** e nas abas de plataforma. O botão **Voltar ao padrão** desfaz as suas escolhas.
+- **Resgate de pontos:** vem da Twitch (as suas recompensas e as padrão, como mensagem em destaque, emotes e efeitos) e da Kick, e
+  ganha um fundo na cor da plataforma para se destacar dos outros alertas. Os Power-ups pagos com Bits não chegam.
+- **Aviso de anúncio (Twitch):** um pop-up compacto (uma linha) por cima do dock, com a contagem regressiva, quando faltam 15, 30, 45
+  ou 60 segundos para o anúncio. **Adiar 5 min** empurra o anúncio (a Twitch só permite adiar, não cancelar, e enquanto houver
+  adiamentos) pela ação `Painel: Anuncio`; **Deixar rodar** dispensa o aviso. Vem **desligado**, em **Configurações > Aviso de
+  anúncio**, onde também há o botão **Testar o aviso**.
+
+<p align="center">
+  <img src="docs/imagens/aviso-anuncio.png" alt="O aviso de anúncio no alto do dock, com a contagem e o botão Adiar 5 min" width="340">
+</p>
 - **Moderação:** passando o mouse numa mensagem aparecem **Banir** (com confirmação), **Silenciar 5 min** e **Apagar** (não existe
   no YouTube), mais o **⋮** com todas as opções. O botão direito abre o mesmo menu: Mencionar, Copiar mensagem, Apagar,
   Silenciar 1 ou 10 minutos, Banir, Fixar e Ver só este usuário.
@@ -188,6 +197,15 @@ Clique na bolinha de estado.
 - **Streamer.bot:** endereço e senha do servidor WebSocket, com **Salvar e reconectar**.
 - **OBS:** endereço e senha do servidor WebSocket do OBS, com **Salvar e testar**, que mostra o tempo atual da live.
 - **Marcação de momentos:** título de clipe e pasta dos arquivos.
+- **Alertas no chat:** uma caixa por tipo de alerta (seguidor, sub, Bits, raid, resgate de pontos, anúncio, banimento...) para
+  decidir se ele aparece na aba **Tudo** e nas abas de plataforma. A aba **Alertas** mostra todos, sempre. As escolhas valem na
+  hora, e **Voltar ao padrão** desfaz tudo.
+- **Aviso de anúncio (Twitch):** liga o pop-up, escolhe com quantos segundos de antecedência ele aparece (15, 30, 45 ou 60) e tem o
+  botão **Testar o aviso**.
+
+<p align="center">
+  <img src="docs/imagens/configuracoes-alertas.png" alt="As seções Alertas no chat e Aviso de anúncio, nas configurações" width="340">
+</p>
 
 O dock é pensado para ficar **estreito**: ele aguenta ser a coluna ao lado do preview do OBS, com o chat ocupando o que sobrar.
 
@@ -205,14 +223,16 @@ O dock é pensado para ficar **estreito**: ele aguenta ser a coluna ao lado do p
 | Desfazer silêncio e banimento | ✓ | ✓ | — |
 | Limpar o chat (`/limpar`) | ✓ | — | — |
 | Criar e controlar enquetes e previsões | ✓ | — | — |
+| Ver resgates de pontos no chat | ✓ | ✓ | — |
+| Aviso de anúncio, com adiamento | ✓ | — | — |
 
 Os "—" são limites das plataformas ou do Streamer.bot 1.0.7, não do LiveHelm: onde a plataforma ou o Streamer.bot não oferece o
 recurso, o dock deixa o botão desligado ou ignora a plataforma.
 
 ## Configuração
 
-- **Pela tela de configurações** (bolinha de estado): endereço e senha do Streamer.bot e do OBS, tema e momentos. Tudo fica
-  guardado no armazenamento do navegador do dock, dentro do OBS.
+- **Pela tela de configurações** (bolinha de estado): endereço e senha do Streamer.bot e do OBS, tema, momentos, os alertas que
+  aparecem no chat e o aviso de anúncio. Tudo fica guardado no armazenamento do navegador do dock, dentro do OBS.
 - **Valores de partida:** [`src/config.js`](src/config.js) tem o endereço e a senha padrão do Streamer.bot (`ws://127.0.0.1:8080`) e do
   OBS (`ws://127.0.0.1:4455`). As senhas vêm **vazias**. Se você gerar o seu próprio build, não coloque senhas reais no arquivo
   se for publicá-lo em algum lugar.
@@ -240,6 +260,11 @@ recurso, o dock deixa o botão desligado ou ignora a plataforma.
 - Dos eventos do Streamer.bot, foram conferidos com dados reais as mensagens da Twitch e da Kick e o seguidor da Twitch. Os demais
   alertas (Kick, YouTube, subs, raids, hype train...) seguem a documentação e são lidos de forma tolerante: se um campo não vier, o
   texto fica sem aquele detalhe. Se algum alerta aparecer errado ou não aparecer, abra uma *issue* com o evento do log do Streamer.bot.
+  Isso vale em especial para o **resgate de pontos da Kick** e para o **aviso de anúncio** da Twitch, escritos pela documentação do
+  Streamer.bot e ainda sem teste com dados reais de todos os casos.
+- **Anúncio da Twitch:** só dá para **adiar** (em 5 minutos, e enquanto a Twitch ainda deixar), nunca cancelar. O Streamer.bot não
+  avisa de anúncios da Kick nem do YouTube, e o botão **Adiar 5 min** depende da ação `Painel: Anuncio` e da permissão de
+  gerenciar anúncios na conta da Twitch.
 - O dock não mostra avatares, e emotes de terceiros (7TV, BetterTTV, FrankerFaceZ) não são carregados: só os que a plataforma
   entrega no evento.
 - O instalador automático é só para **Windows** (o Streamer.bot também roda só nele). O dock em si é uma página e funciona em qualquer
@@ -276,7 +301,10 @@ src/Momentos.jsx         Marcação de momentos
 src/pastaClipes.js       Regra da pasta dos clipes (a mesma da ação C#; testada)
 src/Interacoes.jsx       Enquetes e previsões
 src/ChatPanel.jsx        Feed, abas, menu, moderação, busca e caixa de envio
-src/Configuracoes.jsx    Tela de configurações (tema, conexões, momentos)
+src/alertas.js           Quais alertas entram em cada aba do chat e o catálogo de tipos de alerta (puro; testado)
+src/AvisoAnuncio.jsx     Pop-up do aviso de anúncio da Twitch (contagem, Adiar 5 min, Deixar rodar)
+src/anuncios.js          Regras puras do aviso de anúncio: quando mostrar, adiar, dispensar (testado)
+src/Configuracoes.jsx    Tela de configurações (tema, conexões, momentos, alertas no chat, aviso de anúncio)
 src/acoes.js             Pedidos de ações ao Streamer.bot (os nomes e argumentos que as ações C# leem)
 src/streamerbot.js       Conexão WebSocket (senha, reconexão) e conversão dos eventos em tipos do dock
 src/obs.js               Tempo da live pelo obs-websocket v5
@@ -296,8 +324,9 @@ docs/INSTRUCOES.md       Passo a passo de instalação e configuração
 - **Nova ação do Streamer.bot:** escreva o C# em `acoes-streamerbot/`, adicione o pedido em `acoes.js` com **os mesmos nomes de
   argumentos** do C# e documente a ação na tabela de [`docs/INSTRUCOES.md`](docs/INSTRUCOES.md). Coloque a lógica que não depende de
   rede nem de React em módulos puros (como `tagsLista.js`) e teste em `tests/`.
-- **Novo alerta ou evento:** acrescente o evento em `EVENTOS_ASSINADOS` e a conversão em `ALERTAS` (`src/streamerbot.js`), e o rótulo
-  em `ROTULO_DO_ALERTA` (`ChatPanel.jsx`).
+- **Novo alerta ou evento:** acrescente o evento em `EVENTOS_ASSINADOS` e a conversão em `ALERTAS` (`src/streamerbot.js`), o rótulo
+  em `ROTULO_DO_ALERTA` (`ChatPanel.jsx`) e o tipo em `TIPOS_DE_ALERTA` (`src/alertas.js`), para ele ganhar a caixa em
+  **Configurações > Alertas no chat**. Ele só entra na aba **Tudo** por padrão se também estiver em `ALERTAS_NO_CHAT_GERAL`.
 - **Nova opção de configuração:** é uma seção nova em `configuracoes.js` (o padrão vale seção por seção) e um bloco em
   `Configuracoes.jsx`.
 
