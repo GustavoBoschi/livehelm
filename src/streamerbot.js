@@ -100,6 +100,11 @@ const custoDoResgate = d => numero(d.reward && d.reward.cost, d.rewardCost, d.co
 const detalheDoResgate = d => [tituloDoResgate(d), comUnidade(custoDoResgate(d), 'pontos')].filter(Boolean).join(' · ');
 const tipoDeRecompensaPadrao = d => RECOMPENSAS_PADRAO[d.rewardType] || texto(d.rewardType).replace(/_/g, ' ');
 const NOME_SEM_USUARIO = 'Alguém'; // quando o evento não diz quem resgatou, o alerta aparece assim em vez de sumir
+// O texto que quem resgatou escreveu junto: `userInput` na Twitch (recompensa personalizada), `text` nas recompensas padrão (a mensagem em
+// destaque) e vários candidatos na Kick, que não tem esquema documentado.
+const textoDoResgate = d => texto(
+  d.userInput || d.user_input || d.rawInput || d.input || d.userMessage || (d.redemption && (d.redemption.userInput || d.redemption.user_input)) || mensagemEmTexto(d),
+).trim();
 
 // Peças dos textos dos alertas. Os campos de nível e de meses de sub não têm esquema documentado: vários candidatos.
 function tierDe(d) {
@@ -127,7 +132,8 @@ function dinheiroDe(d) {
 //   nome(data)      troca o nome mostrado (quando o evento não tem usuário);
 //   principal(data, nome)  a frase do alerta ("Raid de Fulano chegando"), no lugar do nome;
 //   rotulo(data)    texto pequeno acima da linha grande (no layout novo só aparece se esta função existir);
-//   detalhe(data)   linha pequena abaixo; destaque(data)  linha em destaque (o vencedor de votação e previsão).
+//   detalhe(data)   linha pequena abaixo; destaque(data)  linha em destaque (o vencedor de votação e previsão);
+//   mensagem(data)  o texto que a pessoa escreveu junto (o do resgate de pontos).
 // Os campos de Cheer, Raid, RewardRedemption e SuperChat vêm da documentação; HypeTrain, HypeChat, KicksGifted e o resgate
 // do Kick não têm esquema documentado, então os candidatos de cada campo são vários.
 const seguidor = frase => ({ event: 'new_follower', principal: (d, nome) => nome, detalhe: () => frase });
@@ -152,14 +158,15 @@ export const ALERTAS = {
   'YouTube.MemberMileStone': { event: 'membermilestone', ...quem('renovou a assinatura'), detalhe: d => juntarLinha(nivelDe(d), mesesTexto(mesesDe(d))) },
   'YouTube.MembershipGift': { event: 'giftpurchase' },
   'YouTube.GiftMembershipReceived': { event: 'giftredemption' },
-  'Twitch.RewardRedemption': { event: 'reward', ...quem('resgatou'), nomePadrao: NOME_SEM_USUARIO, detalhe: detalheDoResgate },
+  'Twitch.RewardRedemption': { event: 'reward', ...quem('resgatou'), nomePadrao: NOME_SEM_USUARIO, detalhe: detalheDoResgate, mensagem: textoDoResgate },
   'Twitch.AutomaticRewardRedemption': {
     event: 'reward',
     ...quem('resgatou'),
     nomePadrao: NOME_SEM_USUARIO,
     detalhe: d => [tipoDeRecompensaPadrao(d), comUnidade(custoDoResgate(d), 'pontos')].filter(Boolean).join(' · '),
+    mensagem: textoDoResgate,
   },
-  'Kick.RewardRedemption': { event: 'reward', ...quem('resgatou'), nomePadrao: NOME_SEM_USUARIO, detalhe: detalheDoResgate },
+  'Kick.RewardRedemption': { event: 'reward', ...quem('resgatou'), nomePadrao: NOME_SEM_USUARIO, detalhe: detalheDoResgate, mensagem: textoDoResgate },
   'Twitch.Cheer': {
     event: 'cheer',
     nome: d => (d.anonymous ? 'Anônimo' : ''),
@@ -230,7 +237,29 @@ function mensagemEmTexto(data) {
   return partes.map(p => texto(p.text)).join('');
 }
 
-const usuarioDe = data => data.user || data.redeemer || data.targetUser || data.raider || data.gifter || data.author || {};
+// Quem fez o evento: o objeto de usuário (`user`, `redeemer`...) ou, quando falta nome, o texto solto no lugar do objeto e os campos soltos no
+// topo (`user_name`, `userName`...). Sempre devolve um objeto.
+function usuarioDe(data) {
+  const bruto = data.user || data.redeemer || data.targetUser || data.raider || data.gifter || data.author;
+  const base = typeof bruto === 'string' ? { name: bruto } : bruto && typeof bruto === 'object' ? bruto : {};
+  return {
+    ...base,
+    id: base.id ?? (data.user_id || data.userId),
+    login: base.login ?? (data.user_login || data.userLogin),
+    name: base.name || base.displayName || base.display_name || data.user_name || data.userName || data.displayName || data.display_name,
+  };
+}
+
+// Paleta padrão da Twitch: nick sem cor (o YouTube não manda, e muita gente da Twitch nunca escolheu) ganha sempre a mesma, sorteada pelo nome.
+const CORES_PADRAO_DO_NOME = [
+  '#ff0000', '#0000ff', '#00ff00', '#b22222', '#ff7f50', '#9acd32', '#ff4500', '#2e8b57',
+  '#daa520', '#d2691e', '#5f9ea0', '#1e90ff', '#ff69b4', '#8a2be2', '#00ff7f',
+];
+function corPadraoDoNome(chave) {
+  let h = 0;
+  for (const c of String(chave || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return CORES_PADRAO_DO_NOME[h % CORES_PADRAO_DO_NOME.length];
+}
 
 // Converte uma mensagem do WebSocket do Streamer.bot em um evento tipado ou null se não usamos.
 // Pura: não mexe em DOM nem em estado.
@@ -259,7 +288,7 @@ export function converterEventoStreamerbot(msg) {
         chattexto: mensagemEmTexto(data),
         chatimg: texto(usuario.profilePicture || usuario.profileImageUrl),
         chatbadges: insignias.map(b => ({ type: 'img', src: b.imageUrl })),
-        nameColor: texto(usuario.color),
+        nameColor: texto(usuario.color) || corPadraoDoNome(usuario.id || usuario.login || nome),
         membership: '',
       },
     };
@@ -294,8 +323,10 @@ export function converterEventoStreamerbot(msg) {
 
   const alerta = ALERTAS[chave];
   if (alerta) {
-    const nome = (alerta.nome && alerta.nome(data)) || usuario.name || usuario.login || usuario.username || alerta.nomePadrao;
+    const nomeDoUsuario = usuario.name || usuario.login || usuario.username;
+    const nome = (alerta.nome && alerta.nome(data)) || nomeDoUsuario || alerta.nomePadrao;
     if (!nome) return null;
+    if (!nomeDoUsuario && alerta.nomePadrao) console.warn(`[LiveHelm] ${chave} sem o nome de quem fez; campos recebidos: ${Object.keys(data).join(', ')}`);
     const quando = texto(data.followedAt || data.timestamp || data.createdAt || data.publishedAt);
     const nivel = texto(data.subTier || data.tier || data.levelName || data.membershipLevel);
     return {
@@ -314,6 +345,7 @@ export function converterEventoStreamerbot(msg) {
         antes: alerta.antes ? alerta.antes(data) : '',
         acao: alerta.acao ? alerta.acao(data) : '',
         destaque: alerta.destaque ? alerta.destaque(data) : '',
+        mensagem: alerta.mensagem ? alerta.mensagem(data) : '',
         segundos: alerta.event === 'upcoming_ad' ? (segundosDe(data) || SEGUNDOS_ANUNCIO_PADRAO) : undefined,
         anuncio: alerta.event === 'upcoming_ad' ? anuncioDe(data) : undefined,
         meta: { origem: 'streamerbot', evento: chave, quando },

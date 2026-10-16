@@ -60,7 +60,7 @@ export async function executarChat(verbo, args) {
   const rotulo = ROTULO_DO_VERBO[verbo];
   if (rotulo && args.plataforma) acao = achar(`Painel: ${rotulo} ${NOME_DA_PLATAFORMA[args.plataforma]}`);
   if (!acao) acao = ACOES_DO_CHAT.map(achar).find(Boolean) || null;
-  if (!acao) return `falta a ação “${ACOES_DO_CHAT[0]}” no Streamer.bot (README.md, “Ações no Streamer.bot”)`;
+  if (!acao) return `falta a ação “${ACOES_DO_CHAT[0]}” no Streamer.bot (o nome precisa ser exatamente igual; docs/INSTRUCOES.md, “Criar as ações no Streamer.bot”)`;
   return executar(acao, { ...args, acao: verbo });
 }
 
@@ -88,7 +88,7 @@ function aguardarAtualizacao(plataforma) {
 export async function atualizarLive(plataforma, titulo, categoria) {
   const nomeDaAcao = ACAO_DA_LIVE[plataforma];
   const acao = achar(nomeDaAcao);
-  if (!acao) return { plataforma, nivel: 2, texto: `falta a ação “${nomeDaAcao}”` };
+  if (!acao) return { plataforma, nivel: 2, texto: `falta a ação “${nomeDaAcao}” (o nome precisa ser exatamente igual)` };
 
   const confirmacao = plataforma === 'youtube' ? null : aguardarAtualizacao(plataforma);
   const erro = await executar(acao, { tituloLive: titulo, categoriaLive: categoria });
@@ -112,7 +112,7 @@ export async function atualizarLive(plataforma, titulo, categoria) {
 // atualizarLive.
 export async function definirTags(tags) {
   const acao = achar(ACAO_TAGS);
-  if (!acao) return { plataforma: 'twitch', nivel: 2, texto: `falta a ação “${ACAO_TAGS}”` };
+  if (!acao) return { plataforma: 'twitch', nivel: 2, texto: `falta a ação “${ACAO_TAGS}” (o nome precisa ser exatamente igual)` };
   const erro = await executar(acao, { acao: tags.length ? 'definir' : 'limpar', tagsLive: tags.join('|') });
   if (erro) return { plataforma: 'twitch', nivel: 2, texto: erro };
   return { plataforma: 'twitch', nivel: 0, texto: tags.length ? `tags enviadas (${tags.length})` : 'tags removidas' };
@@ -122,7 +122,7 @@ export async function definirTags(tags) {
 // VARIAVEL_DE_TAGS, junto do `pedido`, e o dock a lê pelo WebSocket. Devolve { ok, tags, erro }.
 export async function lerTags() {
   const acao = achar(ACAO_TAGS);
-  if (!acao) return { ok: false, tags: [], erro: `falta a ação “${ACAO_TAGS}”` };
+  if (!acao) return { ok: false, tags: [], erro: `falta a ação “${ACAO_TAGS}” (o nome precisa ser exatamente igual)` };
   const pedido = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   const erro = await executar(acao, { acao: 'ler', pedido });
   if (erro) return { ok: false, tags: [], erro };
@@ -135,13 +135,13 @@ export async function lerTags() {
 // exemplo): quem mostra o resultado é o próximo aviso de anúncio.
 export async function adiarAnuncio() {
   const acao = achar(ACAO_ANUNCIO);
-  if (!acao) return `falta a ação “${ACAO_ANUNCIO}” no Streamer.bot (Instruções, “Painel: Anuncio”)`;
+  if (!acao) return `falta a ação “${ACAO_ANUNCIO}” no Streamer.bot (o nome precisa ser exatamente igual; docs/INSTRUCOES.md, “Painel: Anuncio”)`;
   return executar(acao, {});
 }
 
 // Pede ao Streamer.bot que acrescente a linha no arquivo de clipes (args: linha, arquivo, pasta). null se deu certo.
 export async function registrarMomento(args) {
   const acao = achar(ACAO_MOMENTOS);
-  if (!acao) return `falta a ação “${ACAO_MOMENTOS}” no Streamer.bot (README.md, “Ações no Streamer.bot”)`;
+  if (!acao) return `falta a ação “${ACAO_MOMENTOS}” no Streamer.bot (o nome precisa ser exatamente igual; docs/INSTRUCOES.md, “Criar as ações no Streamer.bot”)`;
   return executar(acao, args);
 }

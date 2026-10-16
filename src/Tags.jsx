@@ -103,7 +103,7 @@ export default function Tags({ ativas, conectado, nomesDeAcoes }) {
           {texto.trim() && limparTags(texto).length === 0 && <p className="dica">Nenhuma tag válida (use letras e números).</p>}
           {alterado && noCanal !== null && <p className="dica" id="tags-pendentes">Alterações ainda não aplicadas.</p>}
           {!ativas.twitch && <p className="aviso">A Twitch está desligada no alto: ligue-a para ler e aplicar as tags.</p>}
-          {faltaAcao && <p className="aviso">Falta a ação “{NOME_DA_ACAO_DE_TAGS}” no Streamer.bot (README.md, “Ações no Streamer.bot”).</p>}
+          {faltaAcao && <p className="aviso">Falta a ação “{NOME_DA_ACAO_DE_TAGS}” no Streamer.bot (o nome precisa ser exatamente igual; docs/INSTRUCOES.md, “Criar as ações no Streamer.bot”).</p>}
           {erroLeitura && <p className="aviso" id="erro-tags">Não consegui ler as tags do canal: {erroLeitura}. O que você aplicar troca as tags do canal.</p>}
           {resultado && <p className={`resultado-teste nivel-${resultado.nivel}`} id="resultado-tags">{MARCA[resultado.nivel]} {resultado.texto}</p>}
         </div>

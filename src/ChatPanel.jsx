@@ -73,6 +73,7 @@ const Linha = memo(function Linha({ item, aoMenu, aoRapida }) {
           {item.rotulo && <span className="alerta-rotulo">{item.rotulo}</span>}
           <b>{item.nome}</b>
           {item.detalhe && <span className="alerta-detalhe">{item.detalhe}</span>}
+          {item.mensagem && <span className="alerta-mensagem">{item.mensagem}</span>}
         </div>
       </div>
     );
@@ -133,7 +134,7 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
   const passaNaBusca = useCallback(item => {
     if (usuarioFiltro && !(item.plataforma === usuarioFiltro.plataforma && String(item.nome).toLowerCase() === usuarioFiltro.nome)) return false;
     if (!termo) return true;
-    return simplificar(item.tipo === 'alerta' ? `${item.rotulo} ${item.nome} ${item.detalhe}` : `${item.nome} ${item.texto}`).includes(termo);
+    return simplificar(item.tipo === 'alerta' ? `${item.rotulo} ${item.nome} ${item.detalhe} ${item.mensagem || ''}` : `${item.nome} ${item.texto}`).includes(termo);
   }, [usuarioFiltro, termo]);
   passaRef.current = item => passaNaAba(item, filtro, escolhas) && passaNaBusca(item);
 
@@ -163,8 +164,8 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
     };
     // `evento` é o tipo do alerta (valor de `event` em streamerbot.js); os avisos de moderação do dock (banido, silenciado e chat
     // limpo) usam 'moderacao'. Quais tipos aparecem na aba Tudo: alertas.js.
-    const alertaDaPlataforma = (plataforma, nome, rotulo, detalhe = '', evento = 'moderacao') => ({
-      uid: ++contador.current, tipo: 'alerta', plataforma, nome, rotulo, detalhe, evento, hora: hora(),
+    const alertaDaPlataforma = (plataforma, nome, rotulo, detalhe = '', evento = 'moderacao', mensagem = '') => ({
+      uid: ++contador.current, tipo: 'alerta', plataforma, nome, rotulo, detalhe, mensagem, evento, hora: hora(),
     });
 
     return assinarStreamerbot(ev => {
@@ -185,7 +186,7 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
           const rotulo = a.rotulo || ROTULO_DO_ALERTA[a.event] || '';
           const nome = a.principal || a.chatname;
           const detalhe = [a.destaque, a.detalhe].filter(Boolean).join(' · ');
-          const item = alertaDaPlataforma(a.type, nome, rotulo, detalhe, a.event);
+          const item = alertaDaPlataforma(a.type, nome, rotulo, detalhe, a.event, a.mensagem || '');
           setItens(l => acrescenta(l, [item]));
           contaNovas([item]);
           break;
@@ -307,7 +308,7 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
     const erro = await executarChat('reverter', { plataforma: p.plataforma, usuario: p.login || p.nome, usuarioId: p.userId || '' });
     if (erro) { avisar(`Não consegui reverter: ${erro}`); return; }
     setPunicoes(l => l.map(x => (x.id === p.id ? { ...x, pedido: Date.now() } : x)));
-    avisar(`Pedi ao Streamer.bot para liberar ${p.nome}. Se nada mudar, atualize o código da ação Painel: Chat (README.md).`, false);
+    avisar(`Pedi ao Streamer.bot para liberar ${p.nome}. Se nada mudar, atualize o código da ação Painel: Chat (docs/INSTRUCOES.md, “Criar as ações no Streamer.bot”).`, false);
   }
   function alternarPopup(e) {
     e.stopPropagation();

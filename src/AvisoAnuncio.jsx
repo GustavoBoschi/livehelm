@@ -85,7 +85,7 @@ export default function AvisoAnuncio({ nomesDeAcoes }) {
           <button type="button" id="anuncio-rodar" onClick={() => setAnuncio(a => dispensar(a))}>Deixar rodar</button>
         </span>
       </div>
-      {semAcao && !status && <p className="status status-erro">Falta a ação “{NOME_DA_ACAO_DE_ANUNCIO}” no Streamer.bot (Instruções).</p>}
+      {semAcao && !status && <p className="status status-erro">Falta a ação “{NOME_DA_ACAO_DE_ANUNCIO}” no Streamer.bot (o nome precisa ser exatamente igual; docs/INSTRUCOES.md).</p>}
       {status && <p className={`status${status.erro ? ' status-erro' : ''}`} id="anuncio-status">{status.texto}</p>}
     </section>
   );

@@ -92,7 +92,7 @@ export default function LivePanel({ ativas, conectado, nomesDeAcoes }) {
             <button type="button" className="link" onClick={salvarAtalho} disabled={!categoria.trim()}>+ Salvar categoria</button>
           </div>
           {alvos.length === 0 && <p className="aviso">Nenhuma plataforma ativa: ligue uma no alto.</p>}
-          {faltam.length > 0 && <p className="aviso">Faltam ações no Streamer.bot: {faltam.join(', ')} (README.md, “Ações no Streamer.bot”).</p>}
+          {faltam.length > 0 && <p className="aviso">Faltam ações no Streamer.bot: {faltam.join(', ')} (o nome precisa ser exatamente igual; docs/INSTRUCOES.md, “Criar as ações no Streamer.bot”).</p>}
           {resultados.length > 0 && (
             <ul className="resultados" id="resultados-live">
               {resultados.map(r => (

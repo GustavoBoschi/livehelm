@@ -88,7 +88,7 @@ export default function Momentos({ conectado, nomesDeAcoes }) {
           )}
           <button type="button" id="botao-marcar" className="primario" disabled={!pode} onClick={marcar}>{marcando ? 'Marcando…' : 'Marcar momento'}</button>
           <p className="dica" id="arquivo-momentos">Arquivo: {arquivo}.txt</p>
-          {faltaAcao && <p className="aviso">Falta a ação “{NOME_DA_ACAO_DE_MOMENTOS}” no Streamer.bot (README.md, “Ações no Streamer.bot”).</p>}
+          {faltaAcao && <p className="aviso">Falta a ação “{NOME_DA_ACAO_DE_MOMENTOS}” no Streamer.bot (o nome precisa ser exatamente igual; docs/INSTRUCOES.md, “Criar as ações no Streamer.bot”).</p>}
           {resultado && <p className={`resultado-teste nivel-${resultado.nivel}`} id="resultado-momento">{MARCA[resultado.nivel]} {resultado.texto}</p>}
           {lista.length > 0 && (
             <>

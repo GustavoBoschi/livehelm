@@ -63,7 +63,11 @@ argumento têm que ser idênticos nos dois lados.** Mudou um, mude o outro e a t
 - **Resgates de pontos:** `Twitch.RewardRedemption` (recompensa personalizada: `reward.title`, `reward.cost`, `user`), `Twitch.AutomaticRewardRedemption`
   (recompensas padrão: `rewardType`, `channelPoints`, `user`; os tipos têm nome em português em `RECOMPENSAS_PADRAO`) e `Kick.RewardRedemption`
   (sem esquema documentado: `redeemer` ou `user`, título e custo por vários candidatos). Todos viram o alerta `reward`; sem nome de quem resgatou ele
-  aparece como "Alguém" em vez de sumir (`nomePadrao`). Power-ups pagos com Bits (`PowerUpRedemption`) não são assinados.
+  aparece como "Alguém" em vez de sumir (`nomePadrao`; o aviso no console lista os campos recebidos). `usuarioDe` aceita o objeto `user`, um texto no lugar dele
+  e os campos soltos (`user_name`, `userName`...). O texto que a pessoa escreveu junto (`userInput` na Twitch, `text` nas recompensas padrão, candidatos na Kick) vai
+  em `alerta.mensagem` e o `ChatPanel` o mostra entre aspas abaixo do alerta. Power-ups pagos com Bits (`PowerUpRedemption`) não são assinados.
+- **Cor do nick:** a plataforma manda `user.color` (Twitch e Kick); sem ela (YouTube, e quem nunca escolheu na Twitch) `corPadraoDoNome` sorteia uma cor da paleta
+  padrão da Twitch pelo id ou nome, sempre a mesma para a mesma pessoa (`nameColor` da mensagem).
 - `Twitch.UpcomingAd` dispara **uma vez por minuto nos 5 minutos** antes do anúncio. Segundo a documentação do Streamer.bot traz
   `minutes`, `nextAdAt` (hora exata, UTC), `adLength` (s) e `snoozesLeft`; `streamerbot.js` os lê (`segundosDe`, `anuncioDe`) e o
   alerta leva `segundos` e `anuncio`. O formato no WebSocket ainda não foi visto com um anúncio real: confirme (Test Trigger no

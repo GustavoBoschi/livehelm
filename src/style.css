@@ -221,6 +221,9 @@ button.link { border: 0; background: transparent; color: var(--acento-claro); pa
 .etiqueta-primeira { margin-left: 6px; padding: 0 6px; border-radius: 6px; background: var(--cor-plataforma); color: #0a0a0d; font-size: 11px; font-weight: 700; }
 .alerta-rotulo { margin-right: 6px; }
 .alerta-detalhe { margin-left: 6px; }
+.alerta-mensagem { display: block; margin-top: 2px; font-style: italic; color: var(--texto); overflow-wrap: anywhere; }
+.alerta-mensagem::before { content: '“'; }
+.alerta-mensagem::after { content: '”'; }
 .linha-apagada .texto, .linha-apagada .nome { text-decoration: line-through; opacity: 0.45; }
 
 /* Ações da linha: aparecem com o mouse em cima, no canto de cima à direita. */

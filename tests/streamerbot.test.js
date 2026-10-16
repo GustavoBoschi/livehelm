@@ -107,3 +107,41 @@ test('resgate sem o nome de quem resgatou não some: aparece como "Alguém"', ()
   assert.equal(a.principal, 'Alguém resgatou');
   assert.equal(a.detalhe, 'Dançar · 50 pontos');
 });
+
+test('resgate com o nome fora do objeto user: campos soltos (user_name, userName) e usuário como texto', () => {
+  const soltos = resgate('Twitch', 'RewardRedemption', { user_id: '7', user_login: 'ana', user_name: 'Ana', reward: { title: 'Hidratar', cost: 100 } });
+  assert.equal(soltos.principal, 'Ana resgatou');
+  assert.equal(soltos.userid, '7');
+  assert.equal(resgate('Twitch', 'RewardRedemption', { userName: 'Beto', reward: { title: 'x', cost: 1 } }).principal, 'Beto resgatou');
+  assert.equal(resgate('Twitch', 'RewardRedemption', { user: 'Caio', reward: { title: 'x', cost: 1 } }).principal, 'Caio resgatou');
+  assert.equal(resgate('Twitch', 'RewardRedemption', { user: { login: 'dani' }, reward: { title: 'x', cost: 1 } }).principal, 'dani resgatou');
+});
+
+test('resgate com texto: userInput da Twitch, text da recompensa padrão e candidatos da Kick vão em `mensagem`', () => {
+  const personalizada = resgate('Twitch', 'RewardRedemption', { user: maria, reward: { title: 'Fale comigo', cost: 100 }, userInput: 'oi, tudo bem?' });
+  assert.equal(personalizada.mensagem, 'oi, tudo bem?');
+  assert.equal(resgate('Twitch', 'RewardRedemption', { user: maria, reward: { title: 'Hidratar', cost: 100 }, userInput: null }).mensagem, '');
+  const padrao = resgate('Twitch', 'AutomaticRewardRedemption', { user: maria, rewardType: 'send_highlighted_message', channelPoints: 100, text: 'olha eu aqui' });
+  assert.equal(padrao.mensagem, 'olha eu aqui');
+  assert.equal(resgate('Kick', 'RewardRedemption', { user: maria, title: 'Dançar', cost: 50, userInput: '  vai!  ' }).mensagem, 'vai!');
+  assert.equal(resgate('Kick', 'RewardRedemption', { redeemer: { id: '9', username: 'Joao' }, reward: { title: 'Dançar', cost: 50 }, user_input: 'bora' }).mensagem, 'bora');
+  assert.equal(resgate('Kick', 'RewardRedemption', { redeemer: { id: '9', username: 'Joao' }, reward: { title: 'Dançar', cost: 50 } }).mensagem, '');
+});
+
+test('alerta que não é resgate vem sem `mensagem`', () => {
+  assert.equal(converterEventoStreamerbot({ event: { source: 'Twitch', type: 'Follow' }, data: { user: maria } }).alerta.mensagem, '');
+});
+
+const chat = (source, user) => converterEventoStreamerbot({ event: { source, type: 'ChatMessage' }, data: { messageId: 'm1', text: 'oi', user } }).mensagem;
+
+test('nick sem cor (YouTube, por exemplo) ganha uma cor da paleta, sempre a mesma pro mesmo usuário', () => {
+  const a = chat('YouTube', { id: 'UC1', name: 'Luna' });
+  assert.match(a.nameColor, /^#[0-9a-f]{6}$/);
+  assert.equal(chat('YouTube', { id: 'UC1', name: 'Luna' }).nameColor, a.nameColor);
+  const cores = new Set(['UC1', 'UC2', 'UC3', 'UC4', 'UC5', 'UC6', 'UC7', 'UC8'].map(id => chat('YouTube', { id, name: id }).nameColor));
+  assert.ok(cores.size > 3, `só ${cores.size} cores em 8 usuários`);
+});
+
+test('a cor que a plataforma manda vale mais que a da paleta', () => {
+  assert.equal(chat('Twitch', { id: '1', login: 'maria', name: 'Maria', color: '#123456' }).nameColor, '#123456');
+});
