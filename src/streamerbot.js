@@ -1,6 +1,6 @@
 // Cliente do Streamer.bot do Dock: uma única conexão ao servidor WebSocket dele, compartilhada por quem assina
 // (chat, alertas). Sem React e sem DOM: converte os eventos do Streamer.bot (Twitch, Kick e YouTube) em
-// eventos tipados (chat, alerta, apagar, apagarUsuario, limpar, primeiraMensagem, atualizacao, recusada) e cuida da reconexão. A conexão abre na
+// eventos tipados (chat, alerta, apagar, apagarUsuario, limpar, atualizacao, recusada) e cuida da reconexão. A conexão abre na
 // primeira assinatura e fecha quando a última é cancelada.
 //
 // No Streamer.bot: Servers/Clients > WebSocket Server ligado (endereço e porta em STREAMERBOT_URL). O Kick exige o
@@ -10,6 +10,7 @@
 
 import { STREAMERBOT_URL, STREAMERBOT_SENHA } from './config.js';
 import { ler } from './armazenamento.js';
+import { sha256Base64 } from './sha256.js';
 
 const RECONEXAO_MIN_MS = 1000;
 const RECONEXAO_MAX_MS = 15000;
@@ -21,18 +22,18 @@ const EVENTOS_ASSINADOS = {
   Twitch: [
     'ChatMessage', 'ChatMessageDeleted', 'ChatCleared', 'UserBanned', 'UserTimedOut', 'StreamUpdate',
     'Follow', 'Sub', 'ReSub', 'GiftSub', 'GiftBomb', 'Cheer', 'Raid', 'RewardRedemption', 'AutomaticRewardRedemption', 'HypeChat', 'HypeTrainStart', 'HypeTrainLevelUp',
-    'FirstWord', 'PollCreated', 'PollCompleted', 'PollTerminated', 'PredictionCreated', 'PredictionLocked', 'PredictionCompleted',
-    'PredictionCanceled', 'UpcomingAd',
+    'PollCreated', 'PollCompleted', 'PollTerminated', 'PredictionCreated', 'PredictionLocked', 'PredictionCompleted',
+    'PredictionCanceled', 'UpcomingAd', 'ViewerCountUpdate', 'StreamOnline', 'StreamOffline',
   ],
   Kick: [
     'ChatMessage', 'UserBanned', 'UserTimedOut', 'ChannelUpdate',
     'Follow', 'Subscription', 'Resubscription', 'GiftSubscription', 'MassGiftSubscription', 'KicksGifted', 'RewardRedemption',
-    'FirstWords',
+    'ViewerCountUpdate', 'StreamOnline', 'StreamOffline',
   ],
   YouTube: [
     'Message', 'MessageDeleted', 'UserBanned', 'UserTimedout',
     'NewSubscriber', 'NewSponsor', 'MemberMileStone', 'MembershipGift', 'GiftMembershipReceived', 'SuperChat', 'SuperSticker', 'JewelsGifted',
-    'FirstWords', 'PollStarted', 'PollClosed',
+    'PollStarted', 'PollClosed', 'StatisticsUpdated', 'BroadcastStarted', 'BroadcastEnded',
   ],
 };
 
@@ -142,22 +143,37 @@ const quem = (acao, antes = '') => ({ principal: (d, nome) => [antes, nome, acao
 const abertura = (event, rotulo) => ({ event, rotulo: () => rotulo, nome: tituloDe, principal: tituloDe, detalhe: opcoesDe });
 const encerrada = (event, rotulo) => ({ event, rotulo: () => rotulo, nome: tituloDe, principal: tituloDe, destaque: vencedorDe, detalhe: d => (vencedorDe(d) ? '' : opcoesDe(d)) });
 const cancelada = (event, rotulo) => ({ event, rotulo: () => rotulo, nome: tituloDe, principal: tituloDe });
+// Subs de presente: quem presenteou fica no nome do alerta (como nos demais "quem fez o quê") e para quem foi vai na linha de baixo. A Twitch
+// manda um GiftSub por presenteado (recipient) e um GiftBomb com a lista (recipients); a Kick, GiftSubscription (recipient) e
+// MassGiftSubscription (recipients); no YouTube, MembershipGift traz quem presenteou e quantos (count) e GiftMembershipReceived, o presenteado (user) e
+// quem presenteou (gifter).
+const nomeDaPessoa = p => texto(p && (p.name || p.login));
+const ANONIMO = 'Anônimo';
+// "Ana, Beto, Caio e mais 2": os primeiros nomes da lista de presenteados, sem passar de `max`.
+function listaDePresenteados(lista, max = 3) {
+  const nomes = (Array.isArray(lista) ? lista : []).map(nomeDaPessoa).filter(Boolean);
+  return nomes.length > max ? `${nomes.slice(0, max).join(', ')} e mais ${nomes.length - max}` : nomes.join(', ');
+}
+const paraQuem = nomes => (nomes ? `Para ${nomes}` : '');
+const quantosSubs = n => (n === null ? '' : `${n} ${n === 1 ? 'sub' : 'subs'}`);
+const presenteou = quem('presenteou');
+
 export const ALERTAS = {
   'Twitch.Follow': seguidor('Acabou de seguir'),
   'Kick.Follow': seguidor('Acabou de seguir'),
   'YouTube.NewSubscriber': seguidor('Acabou de se inscrever'),
   'Twitch.Sub': { event: 'new_subscriber', ...quem('virou Sub'), detalhe: tierDe },
   'Twitch.ReSub': { event: 'resub', ...quem('renovou o Sub'), detalhe: d => juntarLinha(tierDe(d), mesesTexto(mesesDe(d))) },
-  'Twitch.GiftSub': { event: 'subscription_gift' },
-  'Twitch.GiftBomb': { event: 'subscription_gift' },
+  'Twitch.GiftSub': { event: 'subscription_gift', ...presenteou, detalhe: d => juntarLinha(paraQuem(nomeDaPessoa(d.recipient)), tierDe(d)) },
+  'Twitch.GiftBomb': { event: 'subscription_gift', ...presenteou, detalhe: d => juntarLinha(quantosSubs(numero(d.total)), paraQuem(listaDePresenteados(d.recipients)), tierDe(d)) },
   'Kick.Subscription': { event: 'new_subscriber', ...quem('virou Sub'), detalhe: tierDe },
   'Kick.Resubscription': { event: 'resub', ...quem('renovou o Sub'), detalhe: d => juntarLinha(tierDe(d), mesesTexto(mesesDe(d))) },
-  'Kick.GiftSubscription': { event: 'subscription_gift' },
-  'Kick.MassGiftSubscription': { event: 'subscription_gift' },
+  'Kick.GiftSubscription': { event: 'subscription_gift', ...presenteou, nome: d => (d.isAnonymous ? ANONIMO : ''), detalhe: d => paraQuem(nomeDaPessoa(d.recipient)) },
+  'Kick.MassGiftSubscription': { event: 'subscription_gift', ...presenteou, nome: d => (d.isAnonymous ? ANONIMO : ''), detalhe: d => juntarLinha(quantosSubs(Array.isArray(d.recipients) ? d.recipients.length : null), paraQuem(listaDePresenteados(d.recipients))) },
   'YouTube.NewSponsor': { event: 'sponsorship', ...quem('virou membro'), detalhe: nivelDe },
   'YouTube.MemberMileStone': { event: 'membermilestone', ...quem('renovou a assinatura'), detalhe: d => juntarLinha(nivelDe(d), mesesTexto(mesesDe(d))) },
-  'YouTube.MembershipGift': { event: 'giftpurchase' },
-  'YouTube.GiftMembershipReceived': { event: 'giftredemption' },
+  'YouTube.MembershipGift': { event: 'giftpurchase', ...presenteou, detalhe: d => juntarLinha(numero(d.count) === null ? '' : `${numero(d.count)} ${numero(d.count) === 1 ? 'membro' : 'membros'}`, texto(d.tier)) },
+  'YouTube.GiftMembershipReceived': { event: 'giftredemption', ...presenteou, nome: d => nomeDaPessoa(d.gifter), detalhe: d => juntarLinha(paraQuem(nomeDaPessoa(d.user)), texto(d.tier)) },
   'Twitch.RewardRedemption': { event: 'reward', ...quem('resgatou'), nomePadrao: NOME_SEM_USUARIO, detalhe: detalheDoResgate, mensagem: textoDoResgate },
   'Twitch.AutomaticRewardRedemption': {
     event: 'reward',
@@ -261,6 +277,10 @@ function corPadraoDoNome(chave) {
   return CORES_PADRAO_DO_NOME[h % CORES_PADRAO_DO_NOME.length];
 }
 
+// A primeira mensagem de alguém no canal, de todas as lives (não a primeira da live): o Streamer.bot marca na própria mensagem, em `meta.firstMessage`
+// (Twitch), `FirstMessage` (Kick) e `meta.FirstMessage` (YouTube). O gatilho "First Words" não serve: ele só vale até zerar (12 h ou ao entrar no ar).
+const ehPrimeiraMensagem = data => [data.meta && data.meta.firstMessage, data.meta && data.meta.FirstMessage, data.FirstMessage, data.firstMessage].some(v => v === true);
+
 // Converte uma mensagem do WebSocket do Streamer.bot em um evento tipado ou null se não usamos.
 // Pura: não mexe em DOM nem em estado.
 export function converterEventoStreamerbot(msg) {
@@ -290,13 +310,9 @@ export function converterEventoStreamerbot(msg) {
         chatbadges: insignias.map(b => ({ type: 'img', src: b.imageUrl })),
         nameColor: texto(usuario.color) || corPadraoDoNome(usuario.id || usuario.login || nome),
         membership: '',
+        primeira: ehPrimeiraMensagem(data),
       },
     };
-  }
-
-  if (type === 'FirstWord' || type === 'FirstWords') {
-    const id = data.messageId || data.id;
-    return id ? { tipo: 'primeiraMensagem', id: texto(id) } : null;
   }
 
   if (type === 'ChatMessageDeleted' || type === 'MessageDeleted') {
@@ -320,6 +336,20 @@ export function converterEventoStreamerbot(msg) {
     const twitch = source === 'Twitch';
     return { tipo: 'atualizacao', plataforma, titulo: texto(twitch ? data.status : data.title), categoria: texto(twitch ? data.game && data.game.name : data.categoryName) };
   }
+
+  // Espectadores e início/fim da live de cada plataforma. Documentados: Twitch.StreamOnline (startedAt), Kick.ViewerCountUpdate (viewerCount),
+  // YouTube.StatisticsUpdated (concurrentViewers, broadcast.actualStartTime) e YouTube.BroadcastStarted/Ended; os demais campos têm
+  // candidatos (Twitch.ViewerCountUpdate e Kick.StreamOnline não têm esquema documentado).
+  if (type === 'ViewerCountUpdate' || (source === 'YouTube' && type === 'StatisticsUpdated')) {
+    const quantidade = numero(data.viewerCount, data.viewers, data.concurrentViewers, data.count);
+    const inicio = Date.parse(texto(data.broadcast && data.broadcast.actualStartTime));
+    return quantidade === null ? null : { tipo: 'espectadores', plataforma, quantidade, inicioMs: Number.isFinite(inicio) ? inicio : null };
+  }
+  if (type === 'StreamOnline' || (source === 'YouTube' && type === 'BroadcastStarted')) {
+    const inicio = Date.parse(texto(data.startedAt || data.started_at || data.createdAt || (data.broadcast && data.broadcast.actualStartTime)));
+    return { tipo: 'transmissao', plataforma, aoVivo: true, inicioMs: Number.isFinite(inicio) ? inicio : null };
+  }
+  if (type === 'StreamOffline' || (source === 'YouTube' && type === 'BroadcastEnded')) return { tipo: 'transmissao', plataforma, aoVivo: false, inicioMs: null };
 
   const alerta = ALERTAS[chave];
   if (alerta) {
@@ -365,11 +395,6 @@ function parametrosDaUrl() {
     url: p.get('streamerbot') || salvo.url || STREAMERBOT_URL,
     senha: p.get('sbsenha') || (salvo.senha !== undefined ? salvo.senha : STREAMERBOT_SENHA),
   };
-}
-
-async function sha256Base64(entrada) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(entrada));
-  return btoa(String.fromCharCode(...new Uint8Array(buf)));
 }
 
 // Abre a conexão e a mantém: reconecta sozinha, com espera crescente quando falha em sequência. O Streamer.bot

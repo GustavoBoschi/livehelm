@@ -154,7 +154,7 @@ Mensagens e alertas das três plataformas num feed só, com abas **Tudo**, **Twi
   <img src="docs/imagens/chat.png" alt="O chat unificado com mensagens e alertas" width="340">
 </p>
 
-- **Leitura:** cor do nome, insígnias e emotes (quando a plataforma os entrega como imagem), marca de **primeira mensagem** e
+- **Leitura:** cor do nome, insígnias e emotes (quando a plataforma os entrega como imagem), marca de **primeira mensagem** (a primeira de todas da pessoa no canal, não a da live) e
   mensagens apagadas ou de quem foi punido **riscadas**. O feed guarda as últimas 400 linhas.
 - **Alertas** no mesmo feed: a aba **Alertas** mostra todos, sempre. A aba **Tudo** mostra, junto das mensagens, só o que importa
   na hora: seguidores, inscrições (novas, renovações e presentes), Bits, raids, resgates de pontos, Hype Chat, Super Chat, Super

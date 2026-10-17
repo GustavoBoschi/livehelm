@@ -82,8 +82,8 @@ namespace InstaladorLiveHelm
                     return Encerrar(silencioso, 0, MessageBoxIcon.Information, "O dock “" + Titulo + "” foi removido do OBS.");
                 }
                 return Encerrar(silencioso, 0, MessageBoxIcon.Information,
-                    "Pronto! O dock “" + Titulo + "” foi instalado.\n\nAbra o OBS: ele aparece na janela. Se não aparecer, use o menu Docks > " + Titulo + ".\n\n" +
-                    "Ele precisa do Streamer.bot aberto, com o servidor WebSocket ligado.");
+                    "O " + NomeDoProduto + " foi instalado com sucesso!\n\n" +
+                    "Para mais informações, consulte o README e as Instruções do " + NomeDoProduto + ".");
             }
             catch (Exception erro)
             {

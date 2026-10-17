@@ -49,15 +49,16 @@ button:disabled { cursor: default; opacity: 0.5; }
 
 /* ---- Barra de cima ---- */
 .barra { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.plataformas { display: flex; gap: 6px; }
+.plataformas { display: flex; flex-wrap: wrap; gap: 6px; }
 .plataforma {
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
+    gap: 4px;
+    min-width: 30px;
     height: 25px;
-    padding: 0;
+    padding: 0 7px 0 6px;
     border: 1px solid var(--borda);
     border-radius: 7px;
     background: var(--elevado);
@@ -367,3 +368,60 @@ select:focus { border-color: var(--acento); }
 .anuncio-botoes button { height: 22px; padding: 0 8px; border: 1px solid var(--borda-forte); border-radius: 6px; background: var(--elevado-sobre); font-size: 11.5px; white-space: nowrap; }
 .anuncio-botoes button.primario { border: 0; background: var(--acento); }
 .aviso-anuncio .status { padding: 2px 0 0; font-size: 11px; }
+
+/* Espectadores somados, ao lado dos botões de plataforma. */
+.espectadores { flex-shrink: 0; margin-left: 2px; padding: 2px 7px; font-size: 12px; font-weight: 600; color: var(--texto); background: var(--elevado); border: 1px solid var(--borda); border-radius: 999px; white-space: nowrap; }
+
+/* Título da live com seletor de emojis (Emojis.jsx). */
+.linha-titulo { display: flex; gap: 8px; align-items: stretch; }
+.linha-titulo input { flex: 1; min-width: 0; }
+.seletor-emoji { position: relative; display: flex; }
+.botao-emoji {
+    width: 34px; height: 32px; padding: 0; font-size: 16px; line-height: 1;
+    border: 1px solid var(--borda); border-radius: 8px; background: var(--campo);
+}
+.botao-emoji:hover, .botao-emoji[aria-expanded='true'] { border-color: var(--acento); background: rgba(var(--acento-rgb), 0.14); }
+.cartao-emoji {
+    position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; width: min(312px, calc(100vw - 32px));
+    padding: 8px; border: 1px solid var(--borda-forte); border-radius: 12px; background: var(--cartao);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+}
+.busca-emoji { display: flex; gap: 6px; margin-bottom: 8px; }
+.busca-emoji input { flex: 1; min-width: 0; height: 28px; }
+.tom-emoji { width: 36px; height: 28px; padding: 0; font-size: 15px; line-height: 1; border: 1px solid var(--borda); border-radius: 8px; background: var(--campo); }
+.tom-emoji:hover { border-color: var(--acento); }
+.vazio-emoji { margin: 8px 2px 0; font-size: 11px; color: var(--suave); }
+.abas-emoji { display: flex; gap: 2px; padding-bottom: 8px; margin-bottom: 6px; border-bottom: 1px solid var(--borda); }
+.aba-emoji { flex: 1; min-width: 0; height: 28px; padding: 0; font-size: 14px; line-height: 1; border: 1px solid transparent; border-radius: 8px; background: transparent; }
+.aba-emoji:hover { background: var(--elevado); }
+.aba-emoji-ativa { border-color: var(--acento); background: rgba(var(--acento-rgb), 0.2); }
+.grade-emoji { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; max-height: 232px; overflow-y: auto; }
+.grade-emoji::-webkit-scrollbar { width: 8px; }
+.grade-emoji::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 4px; }
+.emoji { height: 30px; padding: 0; font-size: 18px; line-height: 1; border: 0; border-radius: 8px; background: transparent; }
+.emoji:hover { background: rgba(var(--acento-rgb), 0.25); }
+
+/* Tempo de live ao lado do símbolo da plataforma (TempoDeLive.jsx). */
+.plataforma-tempo { font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--suave); }
+.plataforma-ativa .plataforma-tempo { color: var(--texto); }
+
+/* Linha de saúde do OBS, abaixo dos botões de plataforma (SaudeDoObs.jsx). */
+.saude-obs { flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 1px 10px; padding: 0 4px; font-size: 11px; color: var(--suave); }
+.saude-obs-parada { opacity: 0.8; }
+.ms-ok { color: var(--ok); }
+.ms-atencao { color: var(--aviso); }
+.ms-ruim { color: var(--erro); }
+.ms-parada { color: var(--suave); }
+
+/* Painel de Multistream: Iniciar lives e Parar lives (PainelMultistream.jsx). */
+.corpo-multistream { display: flex; flex-direction: column; gap: 6px; padding: 0 12px 10px; }
+.multistream-botoes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.multistream-confirmacao { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--texto); font-size: 12px; }
+.multistream-andamento { font-size: 12px; color: var(--aviso); }
+.corpo-multistream button { height: 24px; padding: 0 10px; font-size: 12px; border: 1px solid var(--borda-forte); border-radius: 7px; background: var(--elevado); }
+.corpo-multistream button:hover:not(:disabled) { background: var(--elevado-sobre); }
+.corpo-multistream button.primario { border: 0; background: var(--acento); color: var(--acento-texto); font-weight: 600; }
+.corpo-multistream button.primario:hover:not(:disabled) { filter: brightness(1.12); }
+.corpo-multistream button.perigo { color: #fff; background: #b42318; border-color: #d92d20; font-weight: 600; }
+.corpo-multistream button.perigo:hover:not(:disabled) { background: #d92d20; }
+.corpo-multistream .status, .corpo-multistream .dica { margin: 0; }

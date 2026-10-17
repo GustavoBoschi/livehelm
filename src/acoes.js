@@ -83,27 +83,46 @@ function aguardarAtualizacao(plataforma) {
   return { promessa, cancelar() { clearTimeout(temporizador); esperando.delete(plataforma); } };
 }
 
-// Atualiza título e categoria numa plataforma. Devolve { plataforma, nivel, texto, categoriaFeita }: nivel 0 = ok,
-// 1 = aviso (ficou diferente do digitado ou sem confirmação), 2 = erro. O YouTube só muda o título.
+// Atualiza título e categoria numa plataforma. Devolve { plataforma, nivel, texto, categoriaFeita }: nivel 0 = ok, 1 = aviso (ficou
+// diferente do digitado ou sem confirmação), 2 = erro. O texto diz o que aconteceu com cada um dos dois (título e categoria) e, se algo
+// não saiu como pedido, o motivo provável. O YouTube só muda o título; sem categoria digitada, só o título é enviado.
 export async function atualizarLive(plataforma, titulo, categoria) {
   const nomeDaAcao = ACAO_DA_LIVE[plataforma];
   const acao = achar(nomeDaAcao);
-  if (!acao) return { plataforma, nivel: 2, texto: `falta a ação “${nomeDaAcao}” (o nome precisa ser exatamente igual)` };
+  if (!acao) return { plataforma, nivel: 2, texto: `falta a ação “${nomeDaAcao}” no Streamer.bot (o nome precisa ser exatamente igual; docs/INSTRUCOES.md, “Criar as ações no Streamer.bot”)` };
+
+  const querTitulo = Boolean(titulo);
+  const querCategoria = Boolean(categoria) && plataforma !== 'youtube';
+  if (!querTitulo && !querCategoria) {
+    return { plataforma, nivel: 1, texto: plataforma === 'youtube' ? 'nada enviado: preencha o título (o YouTube só muda o título)' : 'nada enviado: preencha o título e/ou a categoria' };
+  }
 
   const confirmacao = plataforma === 'youtube' ? null : aguardarAtualizacao(plataforma);
   const erro = await executar(acao, { tituloLive: titulo, categoriaLive: categoria });
   if (erro) {
     if (confirmacao) confirmacao.cancelar();
-    return { plataforma, nivel: 2, texto: erro };
+    return { plataforma, nivel: 2, texto: `o Streamer.bot recusou o pedido (${erro}). Confira se a ação “${nomeDaAcao}” está ativa e se a ${NOME_DA_PLATAFORMA[plataforma]} está conectada nele` };
   }
-  if (!confirmacao) return { plataforma, nivel: 0, texto: 'título enviado' };
+  if (!confirmacao) return { plataforma, nivel: 0, texto: `título enviado (o YouTube não confirma${categoria ? '; a categoria não vale nele' : ''})` };
 
   const feito = await confirmacao.promessa;
-  if (!feito) return { plataforma, nivel: 1, texto: 'enviado, sem confirmação (a categoria pode não existir ou já estava assim)' };
-  const base = { plataforma, categoriaFeita: feito.categoria };
-  if (categoria && normalizar(feito.categoria) !== normalizar(categoria)) return { ...base, nivel: 1, texto: `categoria ficou “${feito.categoria}”` };
-  if (titulo && normalizar(feito.titulo) !== normalizar(titulo)) return { ...base, nivel: 1, texto: `título ficou “${feito.titulo}”` };
-  return { ...base, nivel: 0, texto: feito.categoria || 'ok' };
+  if (!feito) {
+    const enviados = [querTitulo && 'título', querCategoria && 'categoria'].filter(Boolean).join(' e ');
+    return { plataforma, nivel: 1, texto: `${enviados} enviado${querTitulo && querCategoria ? 's' : ''}, mas a ${NOME_DA_PLATAFORMA[plataforma]} não confirmou em ${CONFIRMACAO_MS / 1000} s: a categoria pode não existir, o valor já podia estar igual ou a ação do Streamer.bot falhou` };
+  }
+  // O evento da plataforma às vezes vem sem o título ou a categoria: vazio é "não informado", não "ficou diferente".
+  const partes = [];
+  if (querTitulo) {
+    if (!feito.titulo) partes.push({ nivel: 1, texto: 'título enviado (a plataforma não informou o que ficou)' });
+    else if (normalizar(feito.titulo) === normalizar(titulo)) partes.push({ nivel: 0, texto: 'título atualizado' });
+    else partes.push({ nivel: 1, texto: `título ficou “${feito.titulo}” (você pediu “${titulo}”: a plataforma ajustou o texto)` });
+  }
+  if (querCategoria) {
+    if (!feito.categoria) partes.push({ nivel: 1, texto: 'categoria enviada (a plataforma não informou qual ficou)' });
+    else if (normalizar(feito.categoria) === normalizar(categoria)) partes.push({ nivel: 0, texto: `categoria atualizada: ${feito.categoria}` });
+    else partes.push({ nivel: 1, texto: `categoria ficou “${feito.categoria}” (você pediu “${categoria}”: ela não foi achada e a plataforma escolheu outra)` });
+  }
+  return { plataforma, categoriaFeita: feito.categoria, nivel: Math.max(...partes.map(p => p.nivel)), texto: partes.map(p => p.texto).join(' · ') };
 }
 
 // ---- Tags (#) e momentos ----

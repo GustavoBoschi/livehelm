@@ -115,6 +115,8 @@ Sub-ações (nessa ordem), com estes valores:
 
 `%tituloLive%` e `%categoriaLive%` são os **argumentos** que o dock manda. Escreva-os exatamente assim, com os dois `%`.
 
+**Para poder confirmar só o título (categoria vazia):** o dock manda `%categoriaLive%` vazio, e a sub-ação *Set Channel Game* falha com um jogo vazio. Ponha uma condição **If** em volta dela: `%categoriaLive%` *não é vazio*. O mesmo vale para a Kick.
+
 ### `Painel: Kick`: título e categoria na Kick
 
 | Sub-ação | Campo | Valor |
@@ -273,6 +275,8 @@ mudança se perderia.
 
 ### Posição e tamanho
 
+Para o dock ocupar mais altura: no menu **Painéis** do OBS, marque **Expandir painéis na vertical** (os painéis das laterais passam a ir de cima a baixo da janela) e desmarque **Bloquear painéis** para poder arrastar o dock e puxar as bordas.
+
 O OBS decide onde o dock fica. Se ele tomar o lugar de Propriedades ou Fontes, tire-o do encaixe: clique em **Float** na barra de
 título do dock (ele vira uma janela solta, que pode ficar no segundo monitor). Para economizar espaço sem soltar, arraste a barra do
 dock por cima da barra de **Cenas**: eles viram abas do mesmo painel. O dock aguenta ser estreito e baixo.
@@ -288,7 +292,20 @@ Clique na **bolinha de estado** (a verde, amarela ou vermelha, no canto de cima)
 | **OBS** | **Endereço** (`ws://127.0.0.1:4455`) e **Senha** (a do passo 4, ou vazia). **Salvar e testar** mostra o tempo atual da live |
 | **Marcação de momentos** | **Dar título a cada clipe** e a **pasta** dos arquivos (vazia: a pasta `Clipes` ao lado do dock, ou seja, `%LOCALAPPDATA%\LiveHelm\Clipes` no dock instalado; se escolher outra, use o caminho completo, como `C:\Clipes`) |
 | **Alertas no chat** | Marque os tipos de alerta que também devem aparecer na aba **Tudo** e nas abas de cada plataforma (seguidor, sub, resgate de pontos, anúncio, banimento...). A aba **Alertas** mostra todos, sempre. **Voltar ao padrão** desfaz as suas escolhas |
+| **Painel de Multistream** | **Usar o Painel de Multistream** (vem desligado: os botões mexem na live, então quem os quer liga aqui). Mostra a linha de fps, CPU e rede do OBS no alto e o painel Multistream, que aparece na lista das bolinhas azuis para mostrar ou esconder. Usa a conexão com o OBS da seção acima |
 | **Aviso de anúncio (Twitch)** | **Avisar antes de cada anúncio** (vem desligado) e com quantos segundos de antecedência (15, 30, 45 ou 60). **Testar o aviso** mostra o pop-up de mentira, sem falar com a Twitch |
+
+No alto do dock, ao lado do símbolo de cada plataforma, fica o **tempo de live dela** (00:00 com a live desligada) e, junto das plataformas, o **total de espectadores** de todas. O tempo da **Twitch** é o da transmissão principal do OBS (o botão nativo Iniciar transmissão) e, de reserva, o aviso de início da Twitch e o tempo dos destinos do multistream. O de YouTube e Kick é o aviso de início de cada uma e, de reserva, o tempo dos destinos do multistream.
+
+**Como montar:** deixe a **Twitch** como a transmissão do próprio OBS (Configurações > Transmissão) e ponha só **YouTube e Kick** no plugin de multistream, com *sincronizar início e fim* ligado. Assim o botão do OBS inicia os três e o OBS mostra o tempo e a rede da Twitch. Não repita a Twitch no plugin: duas conexões com a mesma chave derrubam uma à outra.
+
+Logo abaixo dos botões de plataforma fica a **linha de saúde do OBS**, em letra pequena: **fps**, **CPU** e **upload**, e, no fim, o estado da live: **Live On** (no ar e sem problemas), **Live Off** (nada no ar) ou, em português simples, o que está acontecendo (a internet oscilando, o PC com dificuldade de codificar o vídeo, o OBS travando). Passe o mouse sobre o aviso para ver o que ele quer dizer. O painel **Multistream**, logo abaixo do chat, tem só os botões **Iniciar lives** e **Parar lives**, que fazem o mesmo que Iniciar e Parar transmissão do OBS (os destinos do plugin de multistream acompanham quando ele está com *sincronizar início e fim*) e pedem confirmação. **Parar lives** faz como o botão do OBS, sem forçar: se você usa **delay** de transmissão, o OBS termina de enviar o que está no delay antes de fechar a conexão, e o painel mostra "Parando… o OBS espera o delay terminar" até tudo fechar. **Não há botões separados por plataforma** (iniciar ou parar só a Kick, por exemplo): o plugin de multistream chama todos os destinos de "multi-output" e o OBS não deixa escolher um por fora; para isso use a janela do plugin. O dock não consegue abrir o painel do plugin de multistream, porque o OBS não permite; se ele estiver fechado, abra pelo menu **Painéis > Múltiplas saídas** do OBS.
+
+Nos **subs de presente**, o alerta (no chat do dock e no overlay) diz quem presenteou e **para quem foi**; quando é um presente em massa mostra a quantidade e os primeiros nomes ("Para Ana, Beto, Caio e mais 2").
+
+No **título da live**, o botão 🙂 abre o seletor de emojis: escreva na busca o que procura (por exemplo "fogo", "coração" ou "dado", em português ou em inglês) e aperte **Enter** para pegar o primeiro, ou navegue pelas abas. O botão 👋 ao lado da busca troca o tom de pele dos emojis de pessoas e gestos. Aparecem só os emojis que o seu sistema consegue desenhar; no Windows 10 os mais novos e as bandeiras ficam de fora.
+
+No **chat**, as abas de plataforma se somam: clique em mais de uma (Twitch e Kick, por exemplo) para ver e falar só nelas; Tudo e Alertas ficam sozinhas.
 
 O **aviso de anúncio** é um pop-up por cima do dock com a contagem regressiva e dois botões: **Adiar 5 min** (usa a ação
 `Painel: Anuncio`, [seção 3](#painel-anuncio-adiar-o-anúncio-da-twitch-opcional)) e **Deixar rodar**, que dispensa o aviso daquele
@@ -329,6 +346,7 @@ nas configurações do dock, então prefira a tela de configurações).
 | Aviso "O Streamer.bot recusou a conexão" | A senha está errada ou faltando. Coloque a mesma senha do **Password** do Streamer.bot nas configurações do dock. |
 | Bolinha **amarela** | Uma plataforma ligada no alto não está conectada no Streamer.bot. Entre com a conta dela (seção 2.2) ou desligue a plataforma no alto do dock. |
 | "Faltam ações no Streamer.bot: …" | O Streamer.bot não tem uma ação com o nome **EXATAMENTE igual** ao esperado: o dock compara letra por letra, então `Painel: Youtube`, `Painel:YouTube` ou um espaço no fim não valem. Copie o nome das Instruções, confirme com **Ok** a janela da sub-ação e espere até 15 s (o dock relê a lista a cada 15 s). Se você não usa aquela plataforma, desligue o botão dela no alto do dock e o aviso some. |
+| Na Twitch, a mensagem do dock só sai depois que alguém fala no chat | O envio da `Painel: Chat` usa o código C# `SendMessage`, que depende do chat da Twitch estar ativo no Streamer.bot. Crie a ação **sem código** `Painel: Enviar Twitch` (`Twitch > Chat > Send Message` com `%mensagem%`, seção 3, *Opcional, sem código*): o dock a usa no lugar quando ela existe. |
 | O título do YouTube não muda (e não aparece erro) | Duas causas comuns: o **Broadcast** da sub-ação `YouTube > Set Title` está em **From Variable** (troque para **All**), ou o YouTube não está conectado no Streamer.bot (a janela da sub-ação mostra **Not Connected** e o pontinho do YouTube no alto do dock fica cinza; entre em `Platforms > YouTube > Accounts`, seção 2.2). |
 | O aviso de anúncio não aparece | Ele vem desligado: ligue em **Configurações > Aviso de anúncio**. Use **Testar o aviso** para ver o pop-up. O Streamer.bot só avisa de anúncios da Twitch, uma vez por minuto nos 5 minutos antes. |
 | O botão Adiar 5 min está apagado ou não adia | Falta a ação `Painel: Anuncio` (sem acento, [seção 3](#painel-anuncio-adiar-o-anúncio-da-twitch-opcional)), ou a Twitch não tem mais adiamentos (o aviso mostra quantos restam), ou o Streamer.bot precisa entrar de novo na Twitch para ganhar a permissão de gerenciar anúncios. |

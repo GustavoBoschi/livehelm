@@ -1,11 +1,8 @@
 // Tempo da transmissão no OBS, lido do obs-websocket (v5) na hora de marcar um momento: abre uma conexão, autentica,
 // pergunta e fecha. Vale o tempo da transmissão; sem transmissão, o da gravação.
-const LIMITE_MS = 5000;
+import { sha256Base64 } from './sha256.js';
 
-async function sha256Base64(entrada) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(entrada));
-  return btoa(String.fromCharCode(...new Uint8Array(buf)));
-}
+const LIMITE_MS = 5000;
 
 // Devolve { ok: true, ms, origem: 'transmissão' | 'gravação' } ou { ok: false, erro }.
 export function tempoDoOBS({ url, senha }) {

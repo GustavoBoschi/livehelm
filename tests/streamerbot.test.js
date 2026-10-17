@@ -145,3 +145,19 @@ test('nick sem cor (YouTube, por exemplo) ganha uma cor da paleta, sempre a mesm
 test('a cor que a plataforma manda vale mais que a da paleta', () => {
   assert.equal(chat('Twitch', { id: '1', login: 'maria', name: 'Maria', color: '#123456' }).nameColor, '#123456');
 });
+
+const chatDe = (source, type, data) => converterEventoStreamerbot({ event: { source, type }, data })?.mensagem;
+const autora = { id: '1', login: 'maria', name: 'Maria' };
+
+test('primeira mensagem: vem da marca da própria mensagem (a primeira de todas no canal), em cada plataforma', () => {
+  assert.equal(chatDe('Twitch', 'ChatMessage', { messageId: 'a', text: 'oi', user: autora, meta: { firstMessage: true } }).primeira, true);
+  assert.equal(chatDe('Twitch', 'ChatMessage', { messageId: 'a', text: 'oi', user: autora, meta: { firstMessage: false, returningChatter: true } }).primeira, false);
+  assert.equal(chatDe('Kick', 'ChatMessage', { messageId: 'b', text: 'oi', user: autora, FirstMessage: true }).primeira, true);
+  assert.equal(chatDe('YouTube', 'Message', { eventId: 'c', message: 'oi', user: autora, meta: { FirstMessage: true } }).primeira, true);
+  assert.equal(chatDe('Twitch', 'ChatMessage', { messageId: 'd', text: 'oi', user: autora }).primeira, false);
+});
+
+test('o gatilho "First Words" (primeira da sessão) não marca mais nada', () => {
+  assert.equal(converterEventoStreamerbot({ event: { source: 'Twitch', type: 'FirstWord' }, data: { messageId: 'a', user: autora } }), null);
+  assert.equal(converterEventoStreamerbot({ event: { source: 'Kick', type: 'FirstWords' }, data: { messageId: 'a', user: autora } }), null);
+});

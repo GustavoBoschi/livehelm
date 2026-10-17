@@ -31,6 +31,9 @@ const PADRAO = {
   momentos: { pasta: '', tituloDeClipe: false }, // pasta vazia = a Clipes ao lado do dock
   alertasNoChat: { escolhas: {} }, // { tipo de alerta: true | false }; o que não está aqui segue o padrão de alertas.js
   anuncio: { ligado: false, antecedencia: ANTECEDENCIA_PADRAO_S }, // o aviso vem desligado: o botão Adiar mexe na live
+  // Painel de Multistream: a linha de saúde do OBS (fps, CPU e rede) no alto e o painel com os botões Iniciar e Parar lives (que pedem confirmação).
+  // Vem desligado: os botões mexem na live, então quem os quer liga nas configurações.
+  multistream: { ligado: false },
 };
 
 // Mistura a e b (arrays [r, g, b]) na proporção k de b.

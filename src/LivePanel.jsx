@@ -1,11 +1,13 @@
 // Título e categoria da live: um campo de cada, Confirmar atualiza as plataformas ativas (uma ação do Streamer.bot por
 // plataforma) e o resultado mostra o que cada uma realmente aplicou. As categorias salvas e as que as plataformas já
 // confirmaram viram sugestões. Tudo fica lembrado no armazenamento do navegador do dock. As tags (#) ficam em Tags.jsx.
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import SeletorDeEmoji from './Emojis.jsx';
 import { ler, gravar } from './armazenamento.js';
 import { PLATAFORMAS_DO_DOCK, NOME_DA_PLATAFORMA, acoesQueFaltam, atualizarLive, normalizar } from './acoes.js';
 
 const MAX_HISTORICO = 60;
+const SEGUNDOS_DOS_AVISOS = 10; // quanto o ok e o aviso de uma atualização ficam na tela; o erro fica até a próxima ação
 const MARCA = ['✓', '!', '✕']; // por nivel: ok, aviso, erro
 
 // Sem repetir (ignorando maiúsculas e acentos) e sem vazios.
@@ -19,6 +21,13 @@ export default function LivePanel({ ativas, conectado, nomesDeAcoes }) {
   const [historico, setHistorico] = useState(() => ler('historico', []));
   const [enviando, setEnviando] = useState(false);
   const [resultados, setResultados] = useState([]);
+  const campoTitulo = useRef(null);
+
+  useEffect(() => {
+    if (!resultados.some(r => r.nivel < 2)) return undefined;
+    const t = setTimeout(() => setResultados(rs => rs.filter(r => r.nivel === 2)), SEGUNDOS_DOS_AVISOS * 1000);
+    return () => clearTimeout(t);
+  }, [resultados]);
 
   const alvos = PLATAFORMAS_DO_DOCK.filter(p => ativas[p]);
   const faltam = nomesDeAcoes ? acoesQueFaltam(alvos, nomesDeAcoes) : [];
@@ -30,6 +39,14 @@ export default function LivePanel({ ativas, conectado, nomesDeAcoes }) {
     setRecolhido(!recolhido);
   }
   function mudarTitulo(v) { setTitulo(v); setResultados([]); gravar('titulo', v); }
+  // Põe o emoji onde está o cursor do título (no fim, se o campo nunca teve foco) e devolve o foco ao campo.
+  function inserirNoTitulo(emoji) {
+    const campo = campoTitulo.current;
+    const ini = campo && campo.selectionStart !== null ? campo.selectionStart : titulo.length;
+    const fim = campo && campo.selectionEnd !== null ? campo.selectionEnd : titulo.length;
+    mudarTitulo(titulo.slice(0, ini) + emoji + titulo.slice(fim));
+    requestAnimationFrame(() => { if (campo) { campo.focus(); const p = ini + emoji.length; campo.setSelectionRange(p, p); } });
+  }
   function mudarCategoria(v) { setCategoria(v); setResultados([]); gravar('categoria', v); }
 
   function salvarAtalho() {
@@ -75,7 +92,10 @@ export default function LivePanel({ ativas, conectado, nomesDeAcoes }) {
       </button>
       {!recolhido && (
         <div className="corpo-live">
-          <input id="campo-titulo" type="text" value={titulo} placeholder="Título da live" spellCheck onChange={e => mudarTitulo(e.target.value)} onKeyDown={tecla} />
+          <div className="linha-titulo">
+            <input id="campo-titulo" ref={campoTitulo} type="text" value={titulo} placeholder="Título da live" spellCheck onChange={e => mudarTitulo(e.target.value)} onKeyDown={tecla} />
+            <SeletorDeEmoji aoEscolher={inserirNoTitulo} />
+          </div>
           <div className="linha-categoria">
             <input id="campo-categoria" type="text" value={categoria} placeholder="Categoria ou jogo" list="sugestoes-categoria" spellCheck={false}
                    onChange={e => mudarCategoria(e.target.value)} onKeyDown={tecla} />

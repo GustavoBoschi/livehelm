@@ -126,7 +126,6 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
   const passaRef = useRef(null);
   const escolhas = useMemo(() => lerConfig().alertasNoChat.escolhas, [oculto]);
   const temporizadorStatus = useRef(null);
-  const primeirasPendentes = useRef(new Set()); // ids de primeira mensagem cujo aviso chegou antes da mensagem
   const contador = useRef(0);
   itensRef.current = itens;
 
@@ -172,10 +171,9 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
       switch (ev.tipo) {
         case 'chat': {
           const m = ev.mensagem;
-          const primeira = primeirasPendentes.current.delete(String(m.id));
           const item = {
             uid: ++contador.current, tipo: 'chat', plataforma: m.type, msgId: m.id, userId: m.userid, login: m.username, nome: m.chatname,
-            cor: m.nameColor, html: m.chatmessage, texto: m.chattexto || '', insignias: m.chatbadges || [], hora: hora(), apagada: false, primeira,
+            cor: m.nameColor, html: m.chatmessage, texto: m.chattexto || '', insignias: m.chatbadges || [], hora: hora(), apagada: false, primeira: !!m.primeira,
           };
           setItens(a => acrescenta(a, [item]));
           contaNovas([item]);
@@ -210,14 +208,6 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
           setItens(l => acrescenta(l.map(i => (i.tipo === 'chat' && (!ev.plataforma || i.plataforma === ev.plataforma) && !i.apagada ? { ...i, apagada: true } : i)), [item]));
           break;
         }
-        case 'primeiraMensagem': {
-          // O aviso pode chegar antes da mensagem: o id fica guardado (até 50) pra quando ela chegar.
-          const id = String(ev.id);
-          primeirasPendentes.current.add(id);
-          if (primeirasPendentes.current.size > 50) primeirasPendentes.current.delete(primeirasPendentes.current.values().next().value);
-          setItens(l => l.map(i => (i.tipo === 'chat' && String(i.msgId) === id ? { ...i, primeira: true } : i)));
-          break;
-        }
         default:
       }
     });
@@ -243,9 +233,15 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
     const el = lista.current;
     if (el) el.scrollTop = el.scrollHeight;
   }
-  // Clicar de novo na aba que já está ativa (uma plataforma ou Alertas) volta para Tudo.
+  // Tudo e Alertas são abas sozinhas (clicar de novo na ativa volta para Tudo). As plataformas se somam: cada clique marca ou desmarca uma, e as
+  // marcadas formam a lista que vê o chat e recebe o que for enviado; desmarcar a última volta para Tudo.
   function trocarFiltro(id) {
-    setFiltro(atual => (id === atual ? 'tudo' : id));
+    setFiltro(atual => {
+      if (!PLATAFORMAS_DO_DOCK.includes(id)) return id === atual ? 'tudo' : id;
+      const marcadas = Array.isArray(atual) ? atual : [];
+      if (!marcadas.includes(id)) return [...marcadas, id];
+      return marcadas.length === 1 ? 'tudo' : marcadas.filter(p => p !== id);
+    });
     seguindo.current = true;
     setNovas(0);
   }
@@ -340,7 +336,7 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
   async function enviar() {
     const t = texto.trim();
     if (!t || enviando) return;
-    let destinos = PLATAFORMAS_DO_DOCK.includes(filtro) ? [filtro] : PLATAFORMAS_DO_DOCK.filter(p => ativas[p]);
+    let destinos = Array.isArray(filtro) ? filtro : PLATAFORMAS_DO_DOCK.filter(p => ativas[p]);
     if (destinos.length === 0) { avisar('Ative uma plataforma no alto ou escolha a aba de uma delas.'); return; }
     let verbo = 'enviar';
     let base = { mensagem: t };
@@ -368,8 +364,9 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
     }
   }
 
-  const placeholder = PLATAFORMAS_DO_DOCK.includes(filtro) ? `Mensagem para ${NOME_DA_PLATAFORMA[filtro]}` : 'Mensagem';
+  const placeholder = Array.isArray(filtro) ? `Mensagem para ${filtro.map(p => NOME_DA_PLATAFORMA[p]).join(' e ')}` : 'Mensagem';
   const vazio = visiveis.length === 0;
+  const marcada = id => (Array.isArray(filtro) ? filtro.includes(id) : filtro === id);
 
   return (
     <section className="cartao chat" id="painel-chat" style={oculto ? { display: 'none' } : undefined}>
@@ -377,8 +374,8 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
         {ABAS.map(a => {
           const plat = PLATAFORMAS_DO_DOCK.includes(a.id) ? plataformaDe(a.id) : null;
           return (
-            <button key={a.id} type="button" role="tab" aria-selected={filtro === a.id} title={a.dica} id={`aba-${a.id}`}
-                    className={`aba${filtro === a.id ? ' aba-ativa' : ''}`} style={plat ? { '--cor-aba': plat.cor } : undefined} onClick={() => trocarFiltro(a.id)}>
+            <button key={a.id} type="button" role="tab" aria-selected={marcada(a.id)} title={plat ? `${a.dica}: clique em mais de uma para ver e falar em várias` : a.dica} id={`aba-${a.id}`}
+                    className={`aba${marcada(a.id) ? ' aba-ativa' : ''}`} style={plat ? { '--cor-aba': plat.cor } : undefined} onClick={() => trocarFiltro(a.id)}>
               {a.icone && <Traco nome={a.icone} />}
               {plat && <IconePlataforma id={a.id} tamanho={13} />}
               {a.texto}

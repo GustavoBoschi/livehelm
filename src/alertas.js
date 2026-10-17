@@ -51,10 +51,11 @@ export const TIPOS_DE_ALERTA = [
 // Só um valor verdadeiro ou falso em `escolhas` conta como escolha; o resto volta ao padrão.
 export const apareceNoChatGeral = (evento, escolhas = {}) => (typeof escolhas[evento] === 'boolean' ? escolhas[evento] : ALERTAS_NO_CHAT_GERAL.has(evento));
 
-// `aba` é 'tudo', 'alertas' ou o id de uma plataforma. A aba de uma plataforma mostra o mesmo que a Tudo, só dessa plataforma (as
+// `aba` é 'tudo', 'alertas', o id de uma plataforma ou uma lista de ids de plataformas (várias abas de plataforma marcadas ao mesmo tempo). A aba de uma plataforma mostra o mesmo que a Tudo, só dessa plataforma (as
 // mensagens e os alertas escolhidos). Mensagem de plataforma nunca aparece na aba Alertas.
 export function passaNaAba(item, aba, escolhas = {}) {
   if (aba === 'tudo') return item.tipo !== 'alerta' || apareceNoChatGeral(item.evento, escolhas);
   if (aba === 'alertas') return item.tipo === 'alerta';
-  return item.plataforma === aba && (item.tipo === 'chat' || apareceNoChatGeral(item.evento, escolhas));
+  const plataformas = Array.isArray(aba) ? aba : [aba];
+  return plataformas.includes(item.plataforma) && (item.tipo === 'chat' || apareceNoChatGeral(item.evento, escolhas));
 }

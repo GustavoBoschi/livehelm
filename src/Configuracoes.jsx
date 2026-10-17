@@ -47,6 +47,11 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
     gravarSecao('anuncio', anuncio);
     setConfig({ ...config, anuncio });
   }
+  function mudarMultistream(parte) {
+    const multistream = { ...config.multistream, ...parte };
+    gravarSecao('multistream', multistream);
+    setConfig({ ...config, multistream });
+  }
   function salvarStreamerbot() {
     const valores = { url: sb.url.trim() || config.streamerbot.url, senha: sb.senha };
     gravarSecao('streamerbot', valores);
@@ -143,6 +148,14 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
           </div>
         ))}
         <button type="button" id="config-alertas-padrao" className="link" onClick={voltarAoPadraoDosAlertas}>Voltar ao padrão</button>
+      </div>
+
+      <div className="config-secao">
+        <h3>Painel de Multistream</h3>
+        <label className="opcao-linha" htmlFor="config-multistream-ligado">
+          <input id="config-multistream-ligado" type="checkbox" checked={config.multistream.ligado} onChange={e => mudarMultistream({ ligado: e.target.checked })} />
+          Usar o Painel de Multistream
+        </label>
       </div>
 
       <div className="config-secao">

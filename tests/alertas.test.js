@@ -113,3 +113,14 @@ test('catálogo: ids únicos, com nome, e todo alerta do padrão e do streamerbo
   for (const def of Object.values(ALERTAS)) assert.ok(ids.includes(def.event), `alerta ${def.event} do streamerbot.js fora do catálogo`);
   assert.ok(ids.includes('moderacao'));
 });
+
+test('várias abas de plataforma marcadas juntas: o chat mostra as mensagens e os alertas escolhidos de qualquer uma delas', () => {
+  const chatDe = plataforma => ({ tipo: 'chat', plataforma });
+  const alertaDe = (plataforma, evento) => ({ tipo: 'alerta', plataforma, evento });
+  const marcadas = ['twitch', 'kick'];
+  assert.equal(passaNaAba(chatDe('twitch'), marcadas), true);
+  assert.equal(passaNaAba(chatDe('kick'), marcadas), true);
+  assert.equal(passaNaAba(chatDe('youtube'), marcadas), false);
+  assert.equal(passaNaAba(alertaDe('kick', 'new_follower'), marcadas), true);
+  assert.equal(passaNaAba(alertaDe('kick', 'upcoming_ad'), marcadas), false);
+});
