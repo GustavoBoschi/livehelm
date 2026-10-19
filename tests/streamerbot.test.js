@@ -161,3 +161,37 @@ test('o gatilho "First Words" (primeira da sessão) não marca mais nada', () =>
   assert.equal(converterEventoStreamerbot({ event: { source: 'Twitch', type: 'FirstWord' }, data: { messageId: 'a', user: autora } }), null);
   assert.equal(converterEventoStreamerbot({ event: { source: 'Kick', type: 'FirstWords' }, data: { messageId: 'a', user: autora } }), null);
 });
+
+const eventoTwitch = (type, data) => converterEventoStreamerbot({ event: { source: 'Twitch', type }, data });
+
+test('mensagem retida pelo AutoMod vira um evento com id, autor, texto e motivo', () => {
+  const r = eventoTwitch('AutoModMessageHeld', { messageId: 'm-9', rawInput: 'isto é um teste', category: 'swearing', level: 2, user: { id: '5', login: 'ana', name: 'Ana' } });
+  assert.deepEqual(r, { tipo: 'retida', plataforma: 'twitch', id: 'm-9', nome: 'Ana', texto: 'isto é um teste', motivo: 'swearing', nivel: 2 });
+});
+
+test('mensagem retida sem id é ignorada, e a atualização traz o que decidiram', () => {
+  assert.equal(eventoTwitch('AutoModMessageHeld', { rawInput: 'sem id', user: { name: 'Ana' } }), null);
+  assert.deepEqual(eventoTwitch('AutoModMessageUpdate', { messageId: 'm-9', status: 'Approved' }), { tipo: 'retidaAtualizada', plataforma: 'twitch', id: 'm-9', status: 'permitida' });
+  assert.equal(eventoTwitch('AutoModMessageUpdate', { messageId: 'm-9', status: 'denied' }).status, 'negada');
+  assert.equal(eventoTwitch('AutoModMessageUpdate', { messageId: 'm-9', status: 'expired' }).status, 'expirada');
+  assert.equal(eventoTwitch('AutoModMessageUpdate', { messageId: 'm-9' }), null);
+});
+
+// O formato da documentação do Streamer.bot (Twitch.RewardRedemption): vale pra afiliado, com ou sem texto.
+test('resgate de pontos no formato documentado mostra quem resgatou, a recompensa, o custo e o texto', () => {
+  const r = eventoTwitch('RewardRedemption', {
+    redemptionId: 'r1', status: 'unfulfilled', userInput: 'toma água!', counter: 3, userCounter: 1,
+    user: { id: '7', login: 'ana', name: 'Ana', type: 'viewer' },
+    reward: { id: 'x', title: 'Hidratar', cost: 300, prompt: 'Beba água', requiresUserInput: true },
+    broadcaster: { id: '1', login: 'streamer', name: 'Streamer' },
+  });
+  assert.equal(r.alerta.event, 'reward');
+  assert.equal(r.alerta.principal, 'Ana resgatou');
+  assert.equal(r.alerta.detalhe, 'Hidratar · 300 pontos');
+  assert.equal(r.alerta.mensagem, 'toma água!');
+});
+
+test('resgate de pontos sem texto não mostra a descrição da recompensa como se a pessoa a tivesse escrito', () => {
+  const r = eventoTwitch('RewardRedemption', { userInput: null, user: { name: 'Ana' }, reward: { title: 'Hidratar', cost: 300, prompt: 'Beba água' } });
+  assert.equal(r.alerta.mensagem, '');
+});

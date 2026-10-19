@@ -26,37 +26,54 @@ public class CPHInline
         return s.Append('"').ToString();
     }
 
-    // Guarda { pedido, ok, tags, erro } em VariavelDeLeitura. O LiveHelm so aceita a resposta que traz o pedido dele.
-    void Responder(string pedido, bool ok, List<string> tags, string erro)
+    // Guarda { pedido, ok, tags, erro, titulo, categoria, afiliado, parceiro, youtube } em VariavelDeLeitura. O LiveHelm so aceita a resposta que
+    // traz o pedido dele. titulo e categoria sao os atuais da Twitch (o LiveHelm os poe nos campos ao abrir); youtube leva os do YouTube, a reserva.
+    void Responder(string pedido, bool ok, List<string> tags, string erro, string titulo, string categoria, bool afiliado, bool parceiro, string tituloYt, string categoriaYt)
     {
         StringBuilder json = new StringBuilder("{\"pedido\":" + Aspas(pedido) + ",\"ok\":" + (ok ? "true" : "false") + ",\"tags\":[");
         if (tags != null)
             for (int i = 0; i < tags.Count; i++)
                 json.Append(i > 0 ? "," : "").Append(Aspas(tags[i]));
-        json.Append("],\"erro\":" + Aspas(erro) + "}");
+        json.Append("],\"erro\":" + Aspas(erro));
+        json.Append(",\"titulo\":" + Aspas(titulo) + ",\"categoria\":" + Aspas(categoria));
+        json.Append(",\"afiliado\":" + (afiliado ? "true" : "false") + ",\"parceiro\":" + (parceiro ? "true" : "false"));
+        json.Append(",\"youtube\":{\"titulo\":" + Aspas(tituloYt) + ",\"categoria\":" + Aspas(categoriaYt) + "}}");
         CPH.SetGlobalVar(VariavelDeLeitura, json.ToString(), false);
     }
 
-    // acao = ler: anota as tags que o canal tem agora na Twitch (arg: pedido, devolvido junto na resposta).
+    // acao = ler: anota as tags, o titulo e a categoria que o canal tem agora na Twitch e, de reserva, o titulo e a categoria da transmissao
+    // do YouTube que o Streamer.bot esta monitorando (arg: pedido, devolvido junto na resposta).
     bool Ler()
     {
         string pedido = Texto("pedido");
+        string tituloYt = "";
+        string categoriaYt = "";
+        try
+        {
+            var yt = CPH.YouTubeGetLatestMonitoredBroadcast();
+            if (yt != null)
+            {
+                tituloYt = yt.Title ?? "";
+                categoriaYt = yt.CategoryName ?? "";
+            }
+        }
+        catch (Exception) { /* YouTube desconectado ou sem transmissao monitorada: so nao ha reserva */ }
         try
         {
             var eu = CPH.TwitchGetBroadcaster();
             var canal = eu == null ? null : CPH.TwitchGetExtendedUserInfoById(eu.UserId);
             if (canal == null)
             {
-                Responder(pedido, false, null, "nao consegui ler o canal (a Twitch esta conectada no Streamer.bot?)");
+                Responder(pedido, false, null, "nao consegui ler o canal (a Twitch esta conectada no Streamer.bot?)", "", "", false, false, tituloYt, categoriaYt);
                 return false;
             }
-            Responder(pedido, true, canal.Tags, "");
+            Responder(pedido, true, canal.Tags, "", canal.ChannelTitle ?? "", canal.Game ?? "", canal.IsAffiliate, canal.IsPartner, tituloYt, categoriaYt);
             return true;
         }
         catch (Exception e)
         {
             CPH.LogError("Painel: nao foi possivel ler as tags (" + e.Message + ")");
-            Responder(pedido, false, null, e.Message);
+            Responder(pedido, false, null, e.Message, "", "", false, false, tituloYt, categoriaYt);
             return false;
         }
     }

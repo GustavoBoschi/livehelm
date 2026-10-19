@@ -6,7 +6,7 @@ import { ACENTOS, FUNDOS, aplicarTema, gravarSecao, lerConfig, pastaPadraoDosCli
 import { reconectarStreamerbot } from './streamerbot.js';
 import { tempoDoOBS, formatarTempo } from './obs.js';
 import { testarAvisoDeAnuncio } from './AvisoAnuncio.jsx';
-import { NOME_DA_ACAO_DE_ANUNCIO } from './acoes.js';
+import { NOME_DA_ACAO_DE_ANUNCIO, canalLido } from './acoes.js';
 import { ALERTAS_NO_CHAT_GERAL, TIPOS_DE_ALERTA, apareceNoChatGeral } from './alertas.js';
 
 export default function Configuracoes({ conectado, recusa, onVoltar }) {
@@ -16,6 +16,8 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
   const [testeObs, setTesteObs] = useState(null); // { nivel, texto }
   const [testando, setTestando] = useState(false);
   const padraoDaPasta = pastaPadraoDosClipes();
+  const canal = canalLido();
+  const semPontosDeCanal = canal && canal.afiliado === false && canal.parceiro === false; // sem afiliação não existem resgates de pontos do canal
 
   function mudarTema(parte) {
     const tema = { ...config.tema, ...parte };
@@ -46,6 +48,16 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
     const anuncio = { ...config.anuncio, ...parte };
     gravarSecao('anuncio', anuncio);
     setConfig({ ...config, anuncio });
+  }
+  function mudarYoutube(parte) {
+    const youtube = { ...config.youtube, ...parte };
+    gravarSecao('youtube', youtube);
+    setConfig({ ...config, youtube });
+  }
+  function mudarSaude(parte) {
+    const saude = { ...config.saude, ...parte };
+    gravarSecao('saude', saude);
+    setConfig({ ...config, saude });
   }
   function mudarMultistream(parte) {
     const multistream = { ...config.multistream, ...parte };
@@ -136,6 +148,7 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
       <div className="config-secao" id="config-alertas">
         <h3>Alertas no chat</h3>
         <p className="dica">A aba <b>Alertas</b> mostra todos os alertas, sempre. Marque os que também devem aparecer na aba <b>Tudo</b> e nas abas de cada plataforma.</p>
+        {semPontosDeCanal && <p className="dica" id="aviso-sem-afiliacao">O seu canal da Twitch ainda não é afiliado nem parceiro: a Twitch só libera os pontos do canal (e por isso os resgates e os alertas deles) para afiliados e parceiros.</p>}
         {TIPOS_DE_ALERTA.map(g => (
           <div key={g.grupo} className="alertas-grupo">
             <div className="rotulo">{g.grupo}</div>
@@ -148,6 +161,21 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
           </div>
         ))}
         <button type="button" id="config-alertas-padrao" className="link" onClick={voltarAoPadraoDosAlertas}>Voltar ao padrão</button>
+      </div>
+
+      <div className="config-secao">
+        <h3>YouTube</h3>
+        <label className="rotulo" htmlFor="config-youtube-categoria">Categoria da transmissão</label>
+        <input id="config-youtube-categoria" type="text" value={config.youtube.categoria} placeholder="Gaming" spellCheck={false} onChange={e => mudarYoutube({ categoria: e.target.value })} />
+        <p className="dica">O YouTube só tem categorias fixas (como Gaming, Entertainment ou Education) e o jogo não dá para escolher pela API. Esta categoria vai junto do título quando você confirma; deixe vazio para não mexer nela. Precisa do código de <b>Painel-YouTube.cs</b> na ação <b>Painel: YouTube</b>.</p>
+      </div>
+
+      <div className="config-secao">
+        <h3>Saúde do OBS</h3>
+        <label className="opcao-linha" htmlFor="config-saude-ligada">
+          <input id="config-saude-ligada" type="checkbox" checked={config.saude.ligada} onChange={e => mudarSaude({ ligada: e.target.checked })} />
+          Mostrar fps, CPU e rede do OBS no alto
+        </label>
       </div>
 
       <div className="config-secao">

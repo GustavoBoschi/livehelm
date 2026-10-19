@@ -1,6 +1,6 @@
 // Cliente do Streamer.bot do Dock: uma única conexão ao servidor WebSocket dele, compartilhada por quem assina
 // (chat, alertas). Sem React e sem DOM: converte os eventos do Streamer.bot (Twitch, Kick e YouTube) em
-// eventos tipados (chat, alerta, apagar, apagarUsuario, limpar, atualizacao, recusada) e cuida da reconexão. A conexão abre na
+// eventos tipados (chat, alerta, apagar, apagarUsuario, limpar, retida, retidaAtualizada, atualizacao, recusada) e cuida da reconexão. A conexão abre na
 // primeira assinatura e fecha quando a última é cancelada.
 //
 // No Streamer.bot: Servers/Clients > WebSocket Server ligado (endereço e porta em STREAMERBOT_URL). O Kick exige o
@@ -23,7 +23,7 @@ const EVENTOS_ASSINADOS = {
     'ChatMessage', 'ChatMessageDeleted', 'ChatCleared', 'UserBanned', 'UserTimedOut', 'StreamUpdate',
     'Follow', 'Sub', 'ReSub', 'GiftSub', 'GiftBomb', 'Cheer', 'Raid', 'RewardRedemption', 'AutomaticRewardRedemption', 'HypeChat', 'HypeTrainStart', 'HypeTrainLevelUp',
     'PollCreated', 'PollCompleted', 'PollTerminated', 'PredictionCreated', 'PredictionLocked', 'PredictionCompleted',
-    'PredictionCanceled', 'UpcomingAd', 'ViewerCountUpdate', 'StreamOnline', 'StreamOffline',
+    'PredictionCanceled', 'UpcomingAd', 'ViewerCountUpdate', 'StreamOnline', 'StreamOffline', 'AutoModMessageHeld', 'AutoModMessageUpdate',
   ],
   Kick: [
     'ChatMessage', 'UserBanned', 'UserTimedOut', 'ChannelUpdate',
@@ -313,6 +313,24 @@ export function converterEventoStreamerbot(msg) {
         primeira: ehPrimeiraMensagem(data),
       },
     };
+  }
+
+  // Mensagem retida pelo AutoMod da Twitch (os campos do evento seguem as variáveis do gatilho: messageId, rawInput, category, level; o
+  // autor vem em user). O dock mostra com Permitir e Negar; a atualização diz o que aconteceu com ela.
+  if (source === 'Twitch' && type === 'AutoModMessageHeld') {
+    const id = texto(data.messageId || data.id);
+    if (!id) return null;
+    return {
+      tipo: 'retida', plataforma: 'twitch', id, nome: usuario.name || usuario.login || 'Alguém',
+      texto: texto(data.rawInput || data.text || data.message || mensagemEmTexto(data)), motivo: texto(data.category), nivel: numero(data.level),
+    };
+  }
+  if (source === 'Twitch' && type === 'AutoModMessageUpdate') {
+    const id = texto(data.messageId || data.id);
+    if (!id) return null;
+    const bruto = texto(data.status || data.state || data.moderationStatus).toLowerCase();
+    const status = /approv|permit|allow/.test(bruto) ? 'permitida' : /den|reject|negad/.test(bruto) ? 'negada' : /expir/.test(bruto) ? 'expirada' : '';
+    return status ? { tipo: 'retidaAtualizada', plataforma: 'twitch', id, status } : null;
   }
 
   if (type === 'ChatMessageDeleted' || type === 'MessageDeleted') {

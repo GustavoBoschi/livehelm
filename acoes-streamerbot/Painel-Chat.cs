@@ -26,6 +26,19 @@ public class CPHInline
         return lista;
     }
 
+    // O chat do YouTube so existe com uma transmissao que o Streamer.bot esteja monitorando: sem ela, a mensagem nao tem para onde ir.
+    // Manda para a transmissao monitorada mais recente (o motivo, quando nao ha, vai para o log do Streamer.bot).
+    void EnviarYouTube(string mensagem)
+    {
+        var live = CPH.YouTubeGetLatestMonitoredBroadcast();
+        if (live == null)
+        {
+            CPH.LogWarn("Painel: nao enviei no YouTube porque o Streamer.bot nao esta monitorando nenhuma transmissao (a live precisa estar no ar e o YouTube conectado em Platforms > YouTube).");
+            return;
+        }
+        CPH.SendYouTubeMessageToLatestMonitored(mensagem, USAR_BOT);
+    }
+
     public bool Execute()
     {
         string acao = Texto("acao");
@@ -41,7 +54,7 @@ public class CPHInline
             case "enviar":
                 if (plataforma == "twitch") CPH.SendMessage(mensagem, USAR_BOT);
                 else if (plataforma == "kick") CPH.SendKickMessage(mensagem, USAR_BOT);
-                else if (plataforma == "youtube") CPH.SendYouTubeMessage(mensagem, USAR_BOT);
+                else if (plataforma == "youtube") EnviarYouTube(mensagem);
                 break;
             case "apagar":
                 if (plataforma == "twitch") CPH.TwitchDeleteChatMessage(mensagemId, USAR_BOT);
@@ -73,6 +86,12 @@ public class CPHInline
                 break;
             case "limpar":
                 if (plataforma == "twitch") CPH.TwitchClearChatMessages(USAR_BOT);
+                break;
+            case "permitir":
+                if (plataforma == "twitch") CPH.TwitchApproveAutoHeldMessage(mensagemId);
+                break;
+            case "negar":
+                if (plataforma == "twitch") CPH.TwitchDenyAutoHeldMessage(mensagemId);
                 break;
             case "enquete":
                 CPH.TwitchPollCreate(Texto("titulo"), Opcoes(), Numero("duracao", 60));

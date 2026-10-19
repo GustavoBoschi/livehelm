@@ -37,8 +37,26 @@ function valorDaVariavel(r) {
   return undefined;
 }
 
-// Interpreta a resposta do GetGlobal da variável que a ação `Painel: Tags` escreve ({ pedido, ok, tags, erro } em JSON).
-// null enquanto a leitura ainda não chegou: variável inexistente, valor ilegível ou de um pedido anterior.
+// O valor (já em objeto) que uma ação do Painel escreveu na variável global, se a resposta é do `pedido`; senão null.
+export function valorDaResposta(resposta, pedido) {
+  if (!resposta || resposta.status !== 'ok') return null;
+  let valor = valorDaVariavel(resposta);
+  if (typeof valor === 'string') {
+    try { valor = JSON.parse(valor); } catch (_) { return null; }
+  }
+  return valor && typeof valor === 'object' && valor.pedido === pedido ? valor : null;
+}
+
+// A resposta da ação `Painel: YouTube` ({ pedido, ok, erro, titulo, categoria, avisos }): null enquanto não chegou.
+export function respostaDoYoutube(resposta, pedido) {
+  const valor = valorDaResposta(resposta, pedido);
+  if (!valor) return null;
+  return { ok: valor.ok === true, erro: String(valor.erro || ''), titulo: String(valor.titulo || ''), categoria: String(valor.categoria || ''), avisos: String(valor.avisos || ''), semTransmissao: valor.semTransmissao === true };
+}
+
+// Interpreta a resposta do GetGlobal da variável que a ação `Painel: Tags` escreve ({ pedido, ok, tags, erro, titulo, categoria, afiliado,
+// parceiro, youtube: { titulo, categoria } } em JSON; os campos além de tags e erro só existem com o código novo da ação: sem eles, vazio e
+// afiliado null = desconhecido). null enquanto a leitura ainda não chegou: variável inexistente, valor ilegível ou de um pedido anterior.
 export function respostaDaLeitura(resposta, pedido) {
   if (!resposta || resposta.status !== 'ok') return null;
   let valor = valorDaVariavel(resposta);
@@ -46,18 +64,28 @@ export function respostaDaLeitura(resposta, pedido) {
     try { valor = JSON.parse(valor); } catch (_) { return null; }
   }
   if (!valor || typeof valor !== 'object' || valor.pedido !== pedido) return null;
-  return { ok: valor.ok === true, tags: Array.isArray(valor.tags) ? valor.tags.map(String) : [], erro: String(valor.erro || '') };
+  const yt = valor.youtube && typeof valor.youtube === 'object' ? valor.youtube : {};
+  return {
+    ok: valor.ok === true,
+    tags: Array.isArray(valor.tags) ? valor.tags.map(String) : [],
+    erro: String(valor.erro || ''),
+    titulo: String(valor.titulo || ''),
+    categoria: String(valor.categoria || ''),
+    afiliado: typeof valor.afiliado === 'boolean' ? valor.afiliado : null,
+    parceiro: typeof valor.parceiro === 'boolean' ? valor.parceiro : null,
+    youtube: { titulo: String(yt.titulo || ''), categoria: String(yt.categoria || '') },
+  };
 }
 
 const espera = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // A ação roda depois que o DoAction responde, então a resposta do pedido pode demorar: pergunta de novo a cada `intervaloMs`
 // (`buscar` devolve a resposta do GetGlobal) até ela chegar ou passar `limiteMs`. null se não chegou.
-export async function aguardarLeitura(buscar, pedido, { limiteMs = 6000, intervaloMs = 400 } = {}) {
+export async function aguardarLeitura(buscar, pedido, { limiteMs = 6000, intervaloMs = 400, interpretar = respostaDaLeitura } = {}) {
   const fim = Date.now() + limiteMs;
   while (Date.now() < fim) {
     let resposta = null;
-    try { resposta = respostaDaLeitura(await buscar(), pedido); } catch (_) { /* tenta de novo até o limite */ }
+    try { resposta = interpretar(await buscar(), pedido); } catch (_) { /* tenta de novo até o limite */ }
     if (resposta) return resposta;
     await espera(intervaloMs);
   }

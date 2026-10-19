@@ -91,8 +91,8 @@ reconhece as que existem. Se alguma faltar, o painel que a usa mostra um aviso a
 
 ### Receita: ação com código C#
 
-As ações `Painel: Tags`, `Painel: Momentos` e `Painel: Chat` usam código pronto que vem neste projeto, na pasta
-[`acoes-streamerbot/`](../acoes-streamerbot).
+As ações `Painel: Tags`, `Painel: Momentos`, `Painel: Chat` e (recomendada) `Painel: YouTube`, e a opcional `Painel: Sem Categoria`,
+usam código pronto que vem neste projeto, na pasta [`acoes-streamerbot/`](../acoes-streamerbot).
 
 1. Crie a ação com a receita acima (passos 1 a 4).
 2. No painel de sub-ações, botão direito, **Core > C# > Execute C# Code**.
@@ -124,14 +124,37 @@ Sub-ações (nessa ordem), com estes valores:
 | `Kick > Channel > Set Channel Title` | título | `%tituloLive%` |
 | `Kick > Channel > Set Channel Category` | categoria | `%categoriaLive%` |
 
-### `Painel: YouTube`: título no YouTube
+### `Painel: YouTube`: título (e categoria) no YouTube
+
+**Recomendado:** receita de **ação com código C#**, colando o conteúdo de
+[`acoes-streamerbot/Painel-YouTube.cs`](../acoes-streamerbot/Painel-YouTube.cs). Ela muda o título da transmissão que o Streamer.bot está
+monitorando e, se você deixar uma categoria em **Configurações > YouTube** (padrão `Gaming`), a categoria também. Depois grava o resultado
+numa variável global (`painelYoutube`) e o dock o mostra: título atualizado, ou o motivo de o YouTube ter recusado (por exemplo, nenhuma
+transmissão monitorada). Argumentos que o dock manda:
+
+| Argumento | O que é |
+|---|---|
+| `tituloLive` | o título, já sem `<` e `>` e com até 100 caracteres (regras do YouTube) |
+| `categoriaYoutube` | uma categoria da lista fixa do YouTube, como `Gaming` (vazia: não mexe) |
+| `pedido` | um identificador, devolvido junto da resposta |
+
+**Sem transmissão não há título para mudar.** O título pertence a uma transmissão do YouTube, e o Streamer.bot só consegue mudar a que ele está
+monitorando (a live criada ou agendada no YouTube Studio, ou no ar, e o YouTube conectado). Se o dock confirmar o título sem nenhuma transmissão
+monitorada, ele mostra o aviso, **guarda o título e o aplica sozinho quando a live do YouTube começar** (o resultado aparece no painel Live). Se
+quiser mudar antes, crie ou agende a live no YouTube Studio e confira em *Platforms > YouTube* do Streamer.bot se ela aparece.
+
+O jogo (por exemplo, "Marvel Rivals") **não dá para escolher pela API do YouTube**: ela só aceita as categorias fixas. Se o YouTube recusar o
+nome da categoria, o dock avisa e o título continua valendo.
+
+**Sem código (o jeito antigo, ainda funciona, mas sem confirmação):**
 
 | Sub-ação | Campo | Valor |
 |---|---|---|
 | `YouTube > Set Title` | título | `%tituloLive%` |
 | `YouTube > Set Title` | **Broadcast** | **`All`** |
 
-O YouTube não muda de categoria por aqui; só o título.
+Com a ação sem código o dock não sabe se o título mudou e o resultado diz isso. O título do YouTube **não pode ter `<` nem `>`** (o dock troca
+`->` por `→` e tira os demais) e vai até 100 caracteres.
 
 > **Atenção ao campo Broadcast:** ele precisa ficar em **All**. Ao criar a sub-ação, a janela costuma vir em **From Variable**: o Streamer.bot
 > então lê a variável `broadcast.id`, que só existe quando a ação é disparada por um evento do YouTube. Como quem dispara a ação é o dock,
@@ -143,7 +166,7 @@ O YouTube não muda de categoria por aqui; só o título.
 > **Dica:** você não precisa criar as três. Crie só as das plataformas que usa. O botão **Confirmar** do painel Live atualiza só as
 > plataformas ligadas no alto do dock, e o painel avisa se uma ligada não tem ação.
 
-### `Painel: Tags`: tags da Twitch
+### `Painel: Tags`: tags da Twitch (e leitura do título e da categoria)
 
 Receita de **ação com código C#**, colando o conteúdo de
 [`acoes-streamerbot/Painel-Tags.cs`](../acoes-streamerbot/Painel-Tags.cs).
@@ -157,7 +180,10 @@ Ela lê, troca e limpa as tags (#) do canal na Twitch. Argumentos que o dock man
 | `tagsLive` | `definir` | as tags separadas por `\|`, sem `#` |
 
 Para ler, a ação grava as tags numa variável global do Streamer.bot chamada `painelTags` e o dock a busca pelo WebSocket. Você
-não precisa criar essa variável.
+não precisa criar essa variável. Na mesma leitura ela anota o **título e a categoria atuais da Twitch** (e o título da transmissão do
+YouTube, de reserva) e se a conta é afiliada ou parceira: ao conectar, o dock põe o título e a categoria da Twitch nos campos da Live (sem
+título na Twitch, o do YouTube; a categoria só vem da Twitch). Quem já tinha a ação precisa **colar o código de novo** e usar **Save and
+Compile**; sem isso o dock segue com os valores lembrados da última vez. O Streamer.bot não tem como ler o título nem a categoria da Kick.
 
 ### `Painel: Momentos`: marcação de momentos
 
@@ -174,6 +200,13 @@ Um navegador não grava arquivos no disco, então quem escreve a linha no `.txt`
 
 A ação cria a pasta e o arquivo se faltarem e grava em UTF-8. Cada marcação é uma linha só, de até 300 letras.
 
+### `Painel: Sem Categoria`: tirar a categoria da Twitch (opcional)
+
+Receita de **ação com código C#**, colando o conteúdo de
+[`acoes-streamerbot/Painel-SemCategoria.cs`](../acoes-streamerbot/Painel-SemCategoria.cs). Com ela, o painel Live ganha o link **Sem categoria
+(Twitch)**. A ação manda o id de jogo `0` (a API da Twitch o entende como "sem categoria") e **já foi testada: funciona na Twitch**. Se um dia a Twitch recusar, troque a constante `IdSemCategoria` no começo do código pelo
+id de uma categoria que você queira usar no lugar (por exemplo, `509658`, a Just Chatting). Kick e YouTube não têm como ficar sem categoria por aqui.
+
 ### `Painel: Chat`: chat, moderação, enquetes e previsões
 
 Receita de **ação com código C#**, colando o conteúdo de
@@ -189,6 +222,7 @@ previsões. O argumento `acao` diz o que fazer:
 | `silenciar` | Silencia um usuário | `plataforma`, `usuario`, `usuarioId`, `segundos` |
 | `banir` | Bane um usuário | `plataforma`, `usuario`, `usuarioId` |
 | `reverter` | Desfaz silêncio ou banimento (Twitch e Kick) | `plataforma`, `usuario` |
+| `permitir` / `negar` | Libera ou barra uma mensagem retida pelo AutoMod (só Twitch) | `plataforma`, `mensagemId` |
 | `limpar` | Limpa o chat (só Twitch) | `plataforma` |
 | `enquete` / `previsao` | Cria uma enquete ou previsão (só Twitch) | `titulo`, `opcoes` (separadas por `\|`), `duracao` |
 | `encerrar_enquete` | Encerra a enquete no ar | `id` |
@@ -197,6 +231,10 @@ previsões. O argumento `acao` diz o que fazer:
 
 No alto do código há a constante **`USAR_BOT`**. Com `false` (o padrão), as mensagens e punições saem **com a sua conta**; com
 `true`, saem com a conta do bot, que precisa ser **moderador** do canal.
+
+**AutoMod:** o dock assina os eventos `AutoModMessageHeld` e `AutoModMessageUpdate` da Twitch. A mensagem retida aparece no chat com **Permitir** e
+**Negar**, que usam o `permitir` e o `negar` acima (`TwitchApproveAutoHeldMessage` e `TwitchDenyAutoHeldMessage`). Cole o código novo de
+[`Painel-Chat.cs`](../acoes-streamerbot/Painel-Chat.cs) para eles funcionarem. O Streamer.bot não tem isso para Kick e YouTube.
 
 **Sem as ações, o chat funciona só para ler.** Ler o chat e os alertas não depende de nenhuma ação, só do WebSocket ligado.
 
@@ -292,7 +330,8 @@ Clique na **bolinha de estado** (a verde, amarela ou vermelha, no canto de cima)
 | **OBS** | **Endereço** (`ws://127.0.0.1:4455`) e **Senha** (a do passo 4, ou vazia). **Salvar e testar** mostra o tempo atual da live |
 | **Marcação de momentos** | **Dar título a cada clipe** e a **pasta** dos arquivos (vazia: a pasta `Clipes` ao lado do dock, ou seja, `%LOCALAPPDATA%\LiveHelm\Clipes` no dock instalado; se escolher outra, use o caminho completo, como `C:\Clipes`) |
 | **Alertas no chat** | Marque os tipos de alerta que também devem aparecer na aba **Tudo** e nas abas de cada plataforma (seguidor, sub, resgate de pontos, anúncio, banimento...). A aba **Alertas** mostra todos, sempre. **Voltar ao padrão** desfaz as suas escolhas |
-| **Painel de Multistream** | **Usar o Painel de Multistream** (vem desligado: os botões mexem na live, então quem os quer liga aqui). Mostra a linha de fps, CPU e rede do OBS no alto e o painel Multistream, que aparece na lista das bolinhas azuis para mostrar ou esconder. Usa a conexão com o OBS da seção acima |
+| **Saúde do OBS** | **Mostrar fps, CPU e rede do OBS no alto** (vem ligado, só lê o OBS). Também aparece na lista das bolinhas azuis. Usa a conexão com o OBS da seção acima |
+| **Painel de Multistream** | **Usar o Painel de Multistream** (vem desligado: os botões mexem na live, então quem os quer liga aqui). Põe o painel Multistream, com **Iniciar lives** e **Parar lives**, na lista das bolinhas azuis para mostrar ou esconder. É independente da Saúde do OBS |
 | **Aviso de anúncio (Twitch)** | **Avisar antes de cada anúncio** (vem desligado) e com quantos segundos de antecedência (15, 30, 45 ou 60). **Testar o aviso** mostra o pop-up de mentira, sem falar com a Twitch |
 
 No alto do dock, ao lado do símbolo de cada plataforma, fica o **tempo de live dela** (00:00 com a live desligada) e, junto das plataformas, o **total de espectadores** de todas. O tempo da **Twitch** é o da transmissão principal do OBS (o botão nativo Iniciar transmissão) e, de reserva, o aviso de início da Twitch e o tempo dos destinos do multistream. O de YouTube e Kick é o aviso de início de cada uma e, de reserva, o tempo dos destinos do multistream.
@@ -346,8 +385,9 @@ nas configurações do dock, então prefira a tela de configurações).
 | Aviso "O Streamer.bot recusou a conexão" | A senha está errada ou faltando. Coloque a mesma senha do **Password** do Streamer.bot nas configurações do dock. |
 | Bolinha **amarela** | Uma plataforma ligada no alto não está conectada no Streamer.bot. Entre com a conta dela (seção 2.2) ou desligue a plataforma no alto do dock. |
 | "Faltam ações no Streamer.bot: …" | O Streamer.bot não tem uma ação com o nome **EXATAMENTE igual** ao esperado: o dock compara letra por letra, então `Painel: Youtube`, `Painel:YouTube` ou um espaço no fim não valem. Copie o nome das Instruções, confirme com **Ok** a janela da sub-ação e espere até 15 s (o dock relê a lista a cada 15 s). Se você não usa aquela plataforma, desligue o botão dela no alto do dock e o aviso some. |
+| No YouTube, a mensagem do dock não sai | O chat do YouTube só existe para uma transmissão que o Streamer.bot **está monitorando** (a live no ar e o YouTube conectado em `Platforms > YouTube`). Com o código atual de [`Painel-Chat.cs`](../acoes-streamerbot/Painel-Chat.cs) (cole de novo), a mensagem vai para a transmissão monitorada mais recente e, se não houver nenhuma, o motivo aparece no log do Streamer.bot ("não enviei no YouTube porque o Streamer.bot não está monitorando nenhuma transmissão"). |
 | Na Twitch, a mensagem do dock só sai depois que alguém fala no chat | O envio da `Painel: Chat` usa o código C# `SendMessage`, que depende do chat da Twitch estar ativo no Streamer.bot. Crie a ação **sem código** `Painel: Enviar Twitch` (`Twitch > Chat > Send Message` com `%mensagem%`, seção 3, *Opcional, sem código*): o dock a usa no lugar quando ela existe. |
-| O título do YouTube não muda (e não aparece erro) | Duas causas comuns: o **Broadcast** da sub-ação `YouTube > Set Title` está em **From Variable** (troque para **All**), ou o YouTube não está conectado no Streamer.bot (a janela da sub-ação mostra **Not Connected** e o pontinho do YouTube no alto do dock fica cinza; entre em `Platforms > YouTube > Accounts`, seção 2.2). |
+| O título do YouTube não muda | Cole o código de [`Painel-YouTube.cs`](../acoes-streamerbot/Painel-YouTube.cs) na ação `Painel: YouTube`: a partir daí o dock mostra o motivo (por exemplo, "o Streamer.bot não está monitorando nenhuma transmissão do YouTube") e o registra nos logs do Streamer.bot. O título também não pode ter `<` nem `>` e vai até 100 caracteres. Se ficar com a ação sem código, duas causas comuns: o **Broadcast** da sub-ação `YouTube > Set Title` está em **From Variable** (troque para **All**), ou o YouTube não está conectado no Streamer.bot (a janela da sub-ação mostra **Not Connected** e o pontinho do YouTube no alto do dock fica cinza; entre em `Platforms > YouTube > Accounts`, seção 2.2). |
 | O aviso de anúncio não aparece | Ele vem desligado: ligue em **Configurações > Aviso de anúncio**. Use **Testar o aviso** para ver o pop-up. O Streamer.bot só avisa de anúncios da Twitch, uma vez por minuto nos 5 minutos antes. |
 | O botão Adiar 5 min está apagado ou não adia | Falta a ação `Painel: Anuncio` (sem acento, [seção 3](#painel-anuncio-adiar-o-anúncio-da-twitch-opcional)), ou a Twitch não tem mais adiamentos (o aviso mostra quantos restam), ou o Streamer.bot precisa entrar de novo na Twitch para ganhar a permissão de gerenciar anúncios. |
 | O resgate de pontos não aparece no chat | Ele aparece na aba **Tudo** e na **Alertas**. Na Twitch chegam as suas recompensas e as padrão (mensagem em destaque, emotes, efeito de mensagem...); Power-ups pagos com Bits não aparecem. Na Kick vale o mesmo cuidado dos alertas: conta ligada no site do Streamer.bot e Streamer.bot reiniciado (próxima linha). O resgate só aparece se o Streamer.bot estiver conectado à plataforma (**Platforms**, seção 2.2). |

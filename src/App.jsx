@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react';
 import { assinarStreamerbot } from './streamerbot.js';
 import { PLATAFORMAS } from './plataformas.js';
-import { carregarAcoes, lerConectadas, notificarAtualizacao, NOME_DA_PLATAFORMA, PLATAFORMAS_DO_DOCK } from './acoes.js';
+import { carregarAcoes, lerConectadas, notificarAtualizacao, youtubeComecou, NOME_DA_PLATAFORMA, PLATAFORMAS_DO_DOCK } from './acoes.js';
 import { ler, gravar } from './armazenamento.js';
 import { D20Ambar, IconePlataforma } from './Icones.jsx';
 import LivePanel from './LivePanel.jsx';
@@ -31,6 +31,7 @@ const PAINEIS = [
   { id: 'momentos', nome: 'Momentos', dica: 'Marcação de momentos da live' },
   { id: 'inter', nome: 'Enquetes e previsões', dica: 'Enquetes e previsões da Twitch' },
   { id: 'chat', nome: 'Chat', dica: 'Chat e moderação' },
+  { id: 'saude', nome: 'Saúde do OBS', dica: 'fps, CPU e rede do OBS e o estado da live' },
   { id: 'multistream', nome: 'Painel de Multistream', dica: 'fps, CPU e rede do OBS e os botões Iniciar e Parar lives' },
 ];
 
@@ -41,7 +42,7 @@ export default function App() {
   const [nomesDeAcoes, setNomesDeAcoes] = useState(null); // null = ainda não carregou
   const [ativas, setAtivas] = useState(() => ({ twitch: true, kick: true, youtube: true, ...ler('ativas', {}) }));
   const config = lerConfig(); // relida a cada desenho: ao voltar das configurações já vale o que foi mudado
-  const saude = useSaudeDoObs(config.multistream.ligado, config.obs.url, config.obs.senha);
+  const saude = useSaudeDoObs(config.saude.ligada || config.multistream.ligado, config.obs.url, config.obs.senha); // a leitura do OBS vale pra linha de saúde, pros botões e pro tempo
   const [lives, setLives] = useState(estadoInicialDasLives); // espectadores e início da live de cada plataforma (lives.js)
   const [agora, setAgora] = useState(Date.now());
 
@@ -56,6 +57,7 @@ export default function App() {
       notificarAtualizacao(ev);
     } else if (ev.tipo === 'espectadores' || ev.tipo === 'transmissao') {
       setLives(estado => aplicarEventoDeLive(estado, ev));
+      if (ev.tipo === 'transmissao' && ev.plataforma === 'youtube' && ev.aoVivo) youtubeComecou(); // aplica o título que ficou esperando a live
     }
   }), []);
 
@@ -80,7 +82,7 @@ export default function App() {
   }, [conectado]);
 
   const [menuPaineis, setMenuPaineis] = useState(false);
-  const [paineis, setPaineis] = useState(() => ({ live: true, tags: true, momentos: true, inter: false, chat: true, multistream: true, ...ler('paineis', {}) }));
+  const [paineis, setPaineis] = useState(() => ({ live: true, tags: true, momentos: true, inter: false, chat: true, saude: true, multistream: true, ...ler('paineis', {}) }));
   const [configAberta, setConfigAberta] = useState(false);
 
   function alternarPainel(id) {
@@ -122,15 +124,19 @@ export default function App() {
     : faltando.length > 0 ? `Streamer.bot conectado · sem conexão: ${faltando.map(id => NOME_DA_PLATAFORMA[id]).join(', ')}` : 'Streamer.bot e plataformas conectados';
 
   const espectadores = totalDeEspectadores(lives, agora);
+  const porPlataforma = PLATAFORMAS_DO_DOCK.filter(id => espectadores.porPlataforma[id] !== undefined).map(id => `${NOME_DA_PLATAFORMA[id]} ${espectadores.porPlataforma[id]}`);
+  const dicaDosEspectadores = porPlataforma.length ? `Espectadores agora, somando todas as plataformas: ${porPlataforma.join(' · ')}` : 'Espectadores agora, somando todas as plataformas (nenhuma informou ainda)';
   // O tempo de cada plataforma. A Twitch sai pelo botão nativo do OBS: vale o início da transmissão principal e, de reserva, o que a própria
   // Twitch informou e o tempo dos destinos do multistream. YouTube e Kick (destinos do multistream): o início que informam e, de reserva, o dos
   // destinos e o da principal (todos começam juntos).
   const obsLigado = Boolean(saude && saude.conectado);
   const inicioPrincipalMs = obsLigado && saude.principalAtiva ? saude.lidoEm - saude.msPrincipal : null;
   const inicioDestinosMs = obsLigado && saude.msDestinos > 0 ? saude.lidoEm - saude.msDestinos : null;
+  // O YouTube e a Kick só avisam no começo e a cada mudança: quem abriu o dock com a live já no ar pode não receber aviso nenhum, então os
+  // destinos do multistream que estão no ar no OBS também valem como "no ar".
   const tempoDaPlataforma = id => (id === 'twitch'
     ? { noAr: Boolean(inicioPrincipalMs) || estaNoAr(lives.twitch, agora), inicioMs: inicioPrincipalMs || lives.twitch.inicioMs || inicioDestinosMs }
-    : { noAr: estaNoAr(lives[id], agora), inicioMs: lives[id].inicioMs || inicioDestinosMs || inicioPrincipalMs });
+    : { noAr: estaNoAr(lives[id], agora) || Boolean(inicioDestinosMs), inicioMs: lives[id].inicioMs || inicioDestinosMs || inicioPrincipalMs });
 
   const aviso = recusa
     ? `O Streamer.bot recusou a conexão (${recusa}). Confira a senha nas configurações (bolinha de estado).`
@@ -160,7 +166,7 @@ export default function App() {
           })}
         </div>
         {(
-          <span className="espectadores" id="espectadores-total" title="Espectadores agora, somando todas as plataformas">
+          <span className="espectadores" id="espectadores-total" title={dicaDosEspectadores}>
             👁 {espectadores.total ?? 0}
           </span>
         )}
@@ -170,7 +176,7 @@ export default function App() {
                 aria-pressed={configAberta} onClick={() => { setMenuPaineis(false); setConfigAberta(a => !a); }} />
         {menuPaineis && (
           <div className="menu-paineis" id="menu-paineis" role="menu" onClick={e => e.stopPropagation()}>
-            {PAINEIS.filter(p => p.id !== 'multistream' || config.multistream.ligado).map(p => (
+            {PAINEIS.filter(p => (p.id !== 'multistream' || config.multistream.ligado) && (p.id !== 'saude' || config.saude.ligada)).map(p => (
               <label key={p.id} className="painel-opcao" title={p.dica}>
                 <input type="checkbox" id={`painel-chave-${p.id}`} checked={!!paineis[p.id]} onChange={() => alternarPainel(p.id)} />
                 {p.nome}
@@ -179,7 +185,7 @@ export default function App() {
           </div>
         )}
       </header>
-      {config.multistream.ligado && <SaudeDoObs saude={saude} />}
+      {config.saude.ligada && paineis.saude && <SaudeDoObs saude={saude} />}
       {aviso && <p className="aviso aviso-faixa" id="aviso-conexao">{aviso}</p>}
       <AvisoAnuncio nomesDeAcoes={nomesDeAcoes} />
       {configAberta ? <Configuracoes conectado={conectado} recusa={recusa} onVoltar={() => setConfigAberta(false)} /> : (

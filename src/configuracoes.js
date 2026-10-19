@@ -31,8 +31,13 @@ const PADRAO = {
   momentos: { pasta: '', tituloDeClipe: false }, // pasta vazia = a Clipes ao lado do dock
   alertasNoChat: { escolhas: {} }, // { tipo de alerta: true | false }; o que não está aqui segue o padrão de alertas.js
   anuncio: { ligado: false, antecedencia: ANTECEDENCIA_PADRAO_S }, // o aviso vem desligado: o botão Adiar mexe na live
-  // Painel de Multistream: a linha de saúde do OBS (fps, CPU e rede) no alto e o painel com os botões Iniciar e Parar lives (que pedem confirmação).
-  // Vem desligado: os botões mexem na live, então quem os quer liga nas configurações.
+  // YouTube: a categoria que a ação `Painel: YouTube` põe na transmissão (uma da lista fixa do YouTube, como Gaming; o jogo não dá pra escolher
+  // pela API). Vazia = não mexe na categoria.
+  youtube: { categoria: 'Gaming' },
+  // Saúde do OBS: a linha de fps, CPU e rede no alto. Só lê o OBS, então vem ligada; é independente do Painel de Multistream.
+  saude: { ligada: true },
+  // Painel de Multistream: o painel com os botões Iniciar e Parar lives (que pedem confirmação). Vem desligado: os botões mexem na live, então
+  // quem os quer liga nas configurações.
   multistream: { ligado: false },
 };
 

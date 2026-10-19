@@ -41,11 +41,21 @@ test('mesmasTags é falso quando a lista do canal ainda não foi lida', () => {
   assert.equal(mesmasTags(['rpg'], null), false);
 });
 
+// Só os campos de sempre (as leituras novas têm teste próprio).
+const basico = r => ({ ok: r.ok, tags: r.tags, erro: r.erro });
 const leitura = (pedido, extra = {}) => JSON.stringify({ pedido, ok: true, tags: ['rpg', 'dados'], erro: '', ...extra });
 
 test('respostaDaLeitura devolve as tags quando o pedido é o esperado (valor como texto)', () => {
   const r = respostaDaLeitura({ status: 'ok', value: leitura('p1') }, 'p1');
-  assert.deepEqual(r, { ok: true, tags: ['rpg', 'dados'], erro: '' });
+  assert.deepEqual(r, { ok: true, tags: ['rpg', 'dados'], erro: '', titulo: '', categoria: '', afiliado: null, parceiro: null, youtube: { titulo: '', categoria: '' } });
+});
+
+test('respostaDaLeitura traz título, categoria, afiliação e a reserva do YouTube quando a ação nova responde', () => {
+  const r = respostaDaLeitura({ status: 'ok', value: leitura('p1', { titulo: 'Mesa de RPG', categoria: "Baldur's Gate 3", afiliado: false, parceiro: false, youtube: { titulo: 'Live YT', categoria: 'Gaming' } }) }, 'p1');
+  assert.equal(r.titulo, 'Mesa de RPG');
+  assert.equal(r.categoria, "Baldur's Gate 3");
+  assert.equal(r.afiliado, false);
+  assert.deepEqual(r.youtube, { titulo: 'Live YT', categoria: 'Gaming' });
 });
 
 test('respostaDaLeitura entende o valor dentro de variable', () => {
@@ -59,7 +69,7 @@ test('respostaDaLeitura entende a resposta real do GetGlobal ({ variables: { nom
     id: 'pedido-1', count: 1, status: 'ok',
     variables: { painelTags: { name: 'painelTags', value: leitura('p1', { tags: ['Português'] }), lastWrite: '2026-10-13T20:16:03.88-03:00' } },
   };
-  assert.deepEqual(respostaDaLeitura(resposta, 'p1'), { ok: true, tags: ['Português'], erro: '' });
+  assert.deepEqual(basico(respostaDaLeitura(resposta, 'p1')), { ok: true, tags: ['Português'], erro: '' });
 });
 
 test('respostaDaLeitura ignora o mapa variables vazio', () => {
@@ -76,7 +86,7 @@ test('respostaDaLeitura devolve null enquanto a variável não existe', () => {
 
 test('respostaDaLeitura repassa o erro que a ação anotou', () => {
   const r = respostaDaLeitura({ status: 'ok', value: leitura('p1', { ok: false, tags: [], erro: 'Twitch desconectada' }) }, 'p1');
-  assert.deepEqual(r, { ok: false, tags: [], erro: 'Twitch desconectada' });
+  assert.deepEqual(basico(r), { ok: false, tags: [], erro: 'Twitch desconectada' });
 });
 
 test('respostaDaLeitura ignora valor que não é JSON', () => {
@@ -93,7 +103,7 @@ test('aguardarLeitura tenta de novo até a leitura do pedido chegar', async () =
   ];
   let chamadas = 0;
   const r = await aguardarLeitura(async () => respostas[Math.min(chamadas++, respostas.length - 1)], 'p1', RAPIDO);
-  assert.deepEqual(r, { ok: true, tags: ['rpg', 'dados'], erro: '' });
+  assert.deepEqual(basico(r), { ok: true, tags: ['rpg', 'dados'], erro: '' });
   assert.equal(chamadas, 3);
 });
 
@@ -105,4 +115,20 @@ test('aguardarLeitura devolve null quando o tempo acaba sem resposta do pedido',
 test('aguardarLeitura não fica presa se a busca falhar', async () => {
   const r = await aguardarLeitura(async () => { throw new Error('caiu'); }, 'p1', { limiteMs: 30, intervaloMs: 5 });
   assert.equal(r, null);
+});
+
+import { respostaDoYoutube } from '../src/tagsLista.js';
+
+test('respostaDoYoutube traz o resultado da ação do YouTube só quando o pedido é o esperado', () => {
+  const valor = JSON.stringify({ pedido: 'p7', ok: true, erro: '', titulo: 'Live nova', categoria: 'Gaming', avisos: '', semTransmissao: false });
+  assert.deepEqual(respostaDoYoutube({ status: 'ok', variables: { painelYoutube: { value: valor } } }, 'p7'), { ok: true, erro: '', titulo: 'Live nova', categoria: 'Gaming', avisos: '', semTransmissao: false });
+  assert.equal(respostaDoYoutube({ status: 'ok', variables: { painelYoutube: { value: valor } } }, 'outro'), null);
+  const falha = JSON.stringify({ pedido: 'p8', ok: false, erro: 'nenhuma transmissão monitorada' });
+  assert.equal(respostaDoYoutube({ status: 'ok', value: falha }, 'p8').erro, 'nenhuma transmissão monitorada');
+});
+
+test('respostaDoYoutube traz o aviso de que não havia transmissão para mudar', () => {
+  const valor = JSON.stringify({ pedido: 'p9', ok: false, erro: 'nenhuma transmissão', semTransmissao: true });
+  assert.equal(respostaDoYoutube({ status: 'ok', value: valor }, 'p9').semTransmissao, true);
+  assert.equal(respostaDoYoutube({ status: 'ok', value: JSON.stringify({ pedido: 'p9', ok: true }) }, 'p9').semTransmissao, false);
 });

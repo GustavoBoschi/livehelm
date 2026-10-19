@@ -6,8 +6,8 @@
 
 **O painel de controle da sua live, dentro do OBS.**
 
-Título e categoria nas três plataformas, tags da Twitch, marcação de momentos, enquetes e previsões, e um chat unificado de
-**Twitch, Kick e YouTube** com moderação, tudo num *dock* do OBS. Sem programa extra aberto, sem plugin para compilar e sem
+Título e categoria nas três plataformas, tags da Twitch, marcação de momentos, enquetes e previsões, a saúde da transmissão, os
+botões de iniciar e parar a live e um chat unificado de **Twitch, Kick e YouTube** com moderação, tudo num *dock* do OBS. Sem programa extra aberto, sem plugin para compilar e sem
 nada que possa derrubar o OBS.
 
 O LiveHelm é uma página web de arquivo único (`livehelm.html`) que o OBS abre como dock de navegador. Ela conversa com o
@@ -43,6 +43,13 @@ no seu computador: não há servidor, conta, cadastro nem chave de API.
 - **Aviso de anúncio da Twitch:** um pop-up pequeno com a contagem regressiva e o botão **Adiar 5 min**, para o anúncio não pegar
   você no meio de uma cena.
 - **Tags da Twitch que você vê e edita:** o painel lê as tags atuais do canal, e você exclui ou adiciona antes de aplicar.
+- **Título e categoria já preenchidos:** ao conectar, o painel lê o título e a categoria atuais da Twitch (e o título do YouTube, de
+  reserva) e põe nos campos. O título aceita **emojis**, com busca em português e inglês.
+- **Saúde da transmissão:** fps, CPU e upload do OBS num aviso em português simples (**Live On** ou o que está dando errado), o tempo de
+  live de cada plataforma e o total de espectadores de todas, com o detalhe de cada uma ao passar o mouse.
+- **Multistream:** botões **Iniciar lives** e **Parar lives** que fazem o mesmo que os do OBS (os destinos do plugin
+  obs-multi-rtmp vão junto) e, no parar, esperam o delay da transmissão terminar em vez de cortar tudo.
+- **AutoMod da Twitch:** a mensagem que o AutoMod segurou aparece no chat com **Permitir** e **Negar**.
 - **Marcação de momentos:** um clique anota o tempo da live num arquivo de texto, para você achar os melhores trechos depois.
 - **Instala em dois cliques** (Windows) e **não precisa de nada instalado** além do OBS e do Streamer.bot.
 - **Leve e à prova de erro:** é só uma página; se algo falhar, o OBS continua funcionando.
@@ -98,6 +105,10 @@ Da esquerda para a direita:
   clique liga todas.
 - **Twitch, Kick e YouTube.** Ligar ou desligar vale para atualizar a live e para enviar mensagens. O pontinho verde diz se o
   Streamer.bot está conectado àquela plataforma.
+- O **tempo de live** ao lado do símbolo de cada plataforma (00:00 com a live desligada) e o **total de espectadores** de todas, com
+  o número de cada uma ao passar o mouse. O tempo da Twitch vem da transmissão do OBS e o do YouTube e da Kick, do aviso de início de
+  cada uma ou, na falta dele, dos destinos do multistream que estão no ar.
+- Logo abaixo, a **linha de saúde do OBS** (veja [Saúde do OBS e Multistream](#saúde-do-obs-e-multistream)).
 - A **bolinha azul** abre a lista de painéis, para mostrar ou esconder cada um (a escolha fica salva).
 - A **bolinha de estado**: **verde** (Streamer.bot e todas as plataformas ativas conectados), **amarela** (falta alguma plataforma
   ativa) ou **vermelha** (sem Streamer.bot, ou ele recusou a conexão). Passe o mouse para ver o motivo; clique para abrir as
@@ -111,7 +122,26 @@ Um campo de título, um de categoria e o botão **Confirmar**, que atualiza toda
   diferente do digitado ou a plataforma não confirmou (por exemplo, uma categoria que não existe).
 - **+ Salvar categoria** cria um atalho de um clique. As categorias que as plataformas já confirmaram viram sugestões enquanto
   você digita.
+- Ao conectar, o painel **lê o título e a categoria atuais da Twitch** e os põe nos campos (sem título na Twitch, usa o do YouTube; a
+  Kick não deixa o Streamer.bot lê-los). Se você já digitou algo, a leitura não passa por cima. Isso pede o código novo da ação
+  `Painel: Tags` (veja as [Instruções](docs/INSTRUCOES.md)); sem ele, valem os valores lembrados da última vez.
+- O botão 🙂 abre o **seletor de emojis** do título: busque por texto (por exemplo "fogo", "coração" ou "dado", em português ou em
+  inglês) e aperte **Enter** para pegar o primeiro, ou navegue pelas abas. O 👋 troca o tom de pele. Só aparecem os emojis que o seu
+  sistema sabe desenhar.
+- **YouTube:** o título é ajustado às regras dele (`->` vira `→`, `<` e `>` saem, até 100 caracteres) e o resultado diz o que mudou.
+  Com o código novo da ação `Painel: YouTube`, o painel mostra se o YouTube aceitou ou o motivo de não ter aceitado. A categoria do
+  YouTube é uma da lista fixa dele (por padrão **Gaming**, em Configurações); o jogo não dá para escolher pela API. O YouTube só
+  muda o título de uma **transmissão que existe** (criada ou agendada no YouTube Studio, ou no ar) e que o Streamer.bot monitora: sem ela,
+  o dock **guarda o título e o aplica sozinho quando a live do YouTube começar**, e mostra o resultado no painel.
+- **Kick:** se a categoria não for aceita, o dock tenta outras grafias (por exemplo "Baldur's Gate 3" com o apóstrofo) e lembra a que
+  funcionou.
+- **Sem categoria (Twitch):** com a ação opcional `Painel: Sem Categoria` aparece um link que pede à Twitch para tirar
+  a categoria.
 - Título e categoria ficam lembrados entre uma live e outra. A seção recolhe para dar espaço ao chat.
+
+<p align="center">
+  <img src="docs/imagens/emojis.png" alt="O seletor de emojis do título, com a busca por texto" width="340">
+</p>
 
 ### Tags da Twitch
 
@@ -146,6 +176,23 @@ Vem desligado: ligue-o pela bolinha azul.
   <img src="docs/imagens/enquetes.png" alt="Painel de enquetes e previsões com uma enquete no ar" width="340">
 </p>
 
+### Saúde do OBS e Multistream
+
+Duas coisas separadas, cada uma com o seu interruptor em **Configurações**:
+
+- **Saúde do OBS** (vem ligada; só lê o OBS): uma linha pequena logo abaixo da barra com **fps**, **CPU** e **upload** e, no fim, o
+  estado da live: **Live On** (no ar e sem problemas), **Live Off** (nada no ar) ou, em português simples, o que está acontecendo (a
+  internet oscilando, o PC com dificuldade de codificar o vídeo, o OBS travando). Passe o mouse sobre o aviso para ver o que ele quer
+  dizer.
+- **Painel de Multistream** (vem **desligado**, porque os botões mexem na live): **Iniciar lives** e **Parar lives**, com confirmação, que
+  fazem o mesmo que Iniciar e Parar transmissão do OBS. Os destinos do plugin de multistream seguem junto quando ele está com
+  *sincronizar início e fim*. O **Parar lives** não força: com **delay** de transmissão, o OBS termina de enviar o que está no delay antes
+  de fechar, e o painel mostra "Parando… o OBS espera o delay terminar" até tudo fechar.
+
+O dock lê o OBS pelo WebSocket dele (a mesma conexão das configurações). **Não há botões separados por plataforma** (iniciar ou parar só a
+Kick, por exemplo): o plugin chama todos os destinos de `multi-output` e o OBS não deixa escolher um por fora; para isso use a janela do
+plugin. A forma recomendada de montar: a **Twitch** como transmissão do próprio OBS e só **YouTube e Kick** no plugin.
+
 ### Chat
 
 Mensagens e alertas das três plataformas num feed só, com abas **Tudo**, **Twitch**, **Kick**, **YouTube** e **Alertas**.
@@ -174,6 +221,10 @@ Mensagens e alertas das três plataformas num feed só, com abas **Tudo**, **Twi
 <p align="center">
   <img src="docs/imagens/aviso-anuncio.png" alt="O aviso de anúncio no alto do dock, com a contagem e o botão Adiar 5 min" width="340">
 </p>
+- **AutoMod da Twitch:** a mensagem que o AutoMod segurou para revisão aparece no feed (abas Tudo, Alertas e Twitch) numa faixa âmbar,
+  com o autor, o texto, o motivo e os botões **Permitir** e **Negar**. Depois que alguém decide, a faixa mostra o resultado. Pede o
+  código novo da ação `Painel: Chat`. Kick e YouTube não têm isso no Streamer.bot.
+- **Sub de presente:** o alerta diz quem presenteou e **para quem foi** (em presente em massa, a quantidade e os primeiros nomes).
 - **Moderação:** passando o mouse numa mensagem aparecem **Banir** (com confirmação), **Silenciar 5 min** e **Apagar** (não existe
   no YouTube), mais o **⋮** com todas as opções. O botão direito abre o mesmo menu: Mencionar, Copiar mensagem, Apagar,
   Silenciar 1 ou 10 minutos, Banir, Fixar e Ver só este usuário.
@@ -200,11 +251,16 @@ Clique na bolinha de estado.
 - **Alertas no chat:** uma caixa por tipo de alerta (seguidor, sub, Bits, raid, resgate de pontos, anúncio, banimento...) para
   decidir se ele aparece na aba **Tudo** e nas abas de plataforma. A aba **Alertas** mostra todos, sempre. As escolhas valem na
   hora, e **Voltar ao padrão** desfaz tudo.
+- **YouTube:** a categoria da transmissão que vai junto do título (padrão Gaming; vazio não mexe nela).
+- **Saúde do OBS** e **Painel de Multistream:** um interruptor para cada um (a saúde vem ligada e o multistream, desligado). O dock também
+  avisa aqui quando o seu canal da Twitch ainda não é afiliado nem parceiro: sem isso a Twitch não tem pontos do canal, e por isso nem
+  resgates nem alertas deles.
 - **Aviso de anúncio (Twitch):** liga o pop-up, escolhe com quantos segundos de antecedência ele aparece (15, 30, 45 ou 60) e tem o
   botão **Testar o aviso**.
 
 <p align="center">
-  <img src="docs/imagens/configuracoes-alertas.png" alt="As seções Alertas no chat e Aviso de anúncio, nas configurações" width="340">
+  <img src="docs/imagens/configuracoes-alertas.png" alt="A seção Alertas no chat, nas configurações" width="340">
+  <img src="docs/imagens/configuracoes-extras.png" alt="As seções YouTube, Saúde do OBS, Painel de Multistream e Aviso de anúncio" width="340">
 </p>
 
 O dock é pensado para ficar **estreito**: ele aguenta ser a coluna ao lado do preview do OBS, com o chat ocupando o que sobrar.
@@ -216,7 +272,8 @@ O dock é pensado para ficar **estreito**: ele aguenta ser a coluna ao lado do p
 | Ler o chat e receber alertas | ✓ | ✓ | ✓ |
 | Enviar mensagens | ✓ | ✓ | ✓ |
 | Título da live | ✓ | ✓ | ✓ |
-| Categoria | ✓ | ✓ | — |
+| Categoria (o jogo) | ✓ | ✓ | — (só as fixas, como Gaming) |
+| Ler o título e a categoria atuais | ✓ | — | só o título |
 | Tags (ler e editar) | ✓ | — | — |
 | Apagar mensagem | ✓ | ✓ | — |
 | Silenciar e banir | ✓ | ✓ | ✓ |
@@ -225,6 +282,8 @@ O dock é pensado para ficar **estreito**: ele aguenta ser a coluna ao lado do p
 | Criar e controlar enquetes e previsões | ✓ | — | — |
 | Ver resgates de pontos no chat | ✓ | ✓ | — |
 | Aviso de anúncio, com adiamento | ✓ | — | — |
+| Ver e liberar mensagens retidas pelo AutoMod | ✓ | — | — |
+| Tempo de live e espectadores | ✓ | ✓ | ✓ |
 
 Os "—" são limites das plataformas ou do Streamer.bot 1.0.7, não do LiveHelm: onde a plataforma ou o Streamer.bot não oferece o
 recurso, o dock deixa o botão desligado ou ignora a plataforma.
@@ -265,6 +324,12 @@ recurso, o dock deixa o botão desligado ou ignora a plataforma.
 - **Anúncio da Twitch:** só dá para **adiar** (em 5 minutos, e enquanto a Twitch ainda deixar), nunca cancelar. O Streamer.bot não
   avisa de anúncios da Kick nem do YouTube, e o botão **Adiar 5 min** depende da ação `Painel: Anuncio` e da permissão de
   gerenciar anúncios na conta da Twitch.
+- **YouTube:** o Streamer.bot só controla uma transmissão que ele está monitorando (a live precisa estar criada e o YouTube conectado
+  nele). Sem o código novo de `Painel: YouTube`, o dock não consegue saber se o título mudou e o aviso diz isso. O título tem as
+  regras do YouTube (sem `<` e `>`, até 100 caracteres) e a categoria é uma da lista fixa dele.
+- **AutoMod e categoria vazia:** o Permitir e Negar do AutoMod segue a documentação do Streamer.bot (os campos exatos do evento ainda
+  não foram vistos com dados reais), (o **Sem categoria** da Twitch já foi testado e funciona).
+- **Multistream:** não existe iniciar ou parar um destino só; o plugin obs-multi-rtmp não tem API e todos os destinos têm o mesmo nome.
 - O dock não mostra avatares, e emotes de terceiros (7TV, BetterTTV, FrankerFaceZ) não são carregados: só os que a plataforma
   entrega no evento.
 - O instalador automático é só para **Windows** (o Streamer.bot também roda só nele). O dock em si é uma página e funciona em qualquer
@@ -296,7 +361,12 @@ src/main.jsx             Monta o App (sem React.StrictMode: ele abriria a conex�
 src/App.jsx              Barra de cima (plataformas, estado) e a lista de painéis
 src/LivePanel.jsx        Título, categoria, atalhos e o resultado da atualização
 src/Tags.jsx             Tags da Twitch (ler, excluir, adicionar, aplicar)
-src/tagsLista.js         Regras puras da lista de tags e a leitura da resposta do Streamer.bot (testadas)
+src/tagsLista.js         Regras puras da lista de tags e a leitura das respostas do Streamer.bot (tags, canal, YouTube; testadas)
+src/titulos.js           Regras de título e categoria: título do YouTube e outras grafias de categoria (puro; testado)
+src/Emojis.jsx           Seletor de emojis do título (busca, abas, tom de pele); emojiBusca.js, emojiSuporte.js e emojisDados.js
+src/lives.js             Estado das lives (espectadores, início, saúde): puro e testado
+src/obsSaude.js          Leitura contínua do OBS (fps, CPU, rede), iniciar e parar a transmissão
+src/SaudeDoObs.jsx       Linha de saúde do OBS; PainelMultistream.jsx tem os botões Iniciar e Parar lives; TempoDeLive.jsx o tempo
 src/Momentos.jsx         Marcação de momentos
 src/pastaClipes.js       Regra da pasta dos clipes (a mesma da ação C#; testada)
 src/Interacoes.jsx       Enquetes e previsões

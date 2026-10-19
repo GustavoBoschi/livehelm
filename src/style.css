@@ -425,3 +425,13 @@ select:focus { border-color: var(--acento); }
 .corpo-multistream button.perigo { color: #fff; background: #b42318; border-color: #d92d20; font-weight: 600; }
 .corpo-multistream button.perigo:hover:not(:disabled) { background: #d92d20; }
 .corpo-multistream .status, .corpo-multistream .dica { margin: 0; }
+
+/* Mensagem retida pelo AutoMod: faixa âmbar, com os botões Permitir e Negar até alguém decidir. */
+.linha-retida { border-left-color: #e0a526; background: rgba(224, 165, 38, 0.14); color: var(--texto); }
+.linha-retida .alerta-rotulo { color: #e0a526; }
+.retida-botoes { display: inline-flex; gap: 6px; margin-left: 8px; vertical-align: middle; }
+.retida-botoes button { padding: 1px 10px; border-radius: 6px; border: 1px solid var(--borda, rgba(255, 255, 255, 0.18)); background: transparent; color: var(--texto); font-size: 12px; font-weight: 600; cursor: pointer; }
+.retida-botoes .retida-permitir:hover:not(:disabled) { background: rgba(60, 200, 120, 0.25); border-color: rgba(60, 200, 120, 0.7); }
+.retida-botoes .retida-negar:hover:not(:disabled) { background: rgba(240, 80, 80, 0.25); border-color: rgba(240, 80, 80, 0.7); }
+.retida-botoes button:disabled { opacity: 0.5; cursor: default; }
+.retida-status { margin-left: 8px; font-size: 12px; color: var(--suave); font-style: italic; }

@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 import SeletorDeEmoji from './Emojis.jsx';
 import { ler, gravar } from './armazenamento.js';
-import { PLATAFORMAS_DO_DOCK, NOME_DA_PLATAFORMA, acoesQueFaltam, atualizarLive, normalizar } from './acoes.js';
+import { PLATAFORMAS_DO_DOCK, NOME_DA_PLATAFORMA, acoesQueFaltam, aoAplicarPendenteDoYoutube, atualizarLive, lerCanal, normalizar, temAcaoDeTags, temAcaoSemCategoria, tirarCategoriaDaTwitch } from './acoes.js';
 
 const MAX_HISTORICO = 60;
 const SEGUNDOS_DOS_AVISOS = 10; // quanto o ok e o aviso de uma atualização ficam na tela; o erro fica até a próxima ação
@@ -22,6 +22,27 @@ export default function LivePanel({ ativas, conectado, nomesDeAcoes }) {
   const [enviando, setEnviando] = useState(false);
   const [resultados, setResultados] = useState([]);
   const campoTitulo = useRef(null);
+  useEffect(() => aoAplicarPendenteDoYoutube(r => setResultados(rs => [...rs.filter(x => x.plataforma !== 'youtube'), r])), []);
+  const editado = useRef(false); // a pessoa mexeu nos campos: a leitura do canal não pode passar por cima
+  const jaLeu = useRef(false);
+
+  // Ao conectar, os campos ganham o título e a categoria que o canal tem agora (a Twitch; sem título lá, o do YouTube). A categoria só vem da
+  // Twitch: a do YouTube é um grupo de vídeos ("Games"), não o jogo, e a Kick não deixa o Streamer.bot lê-la. Sem a ação nova ou sem resposta,
+  // ficam os valores lembrados da última vez.
+  useEffect(() => {
+    if (!conectado) { jaLeu.current = false; return undefined; }
+    if (jaLeu.current || !nomesDeAcoes || !temAcaoDeTags(nomesDeAcoes)) return undefined;
+    jaLeu.current = true;
+    let vivo = true;
+    lerCanal().then(r => {
+      if (!vivo || editado.current) return;
+      const t = (r.ok && r.titulo) || (r.youtube && r.youtube.titulo) || '';
+      const c = (r.ok && r.categoria) || '';
+      if (t) { setTitulo(t); gravar('titulo', t); }
+      if (c) { setCategoria(c); gravar('categoria', c); }
+    });
+    return () => { vivo = false; };
+  }, [conectado, nomesDeAcoes]);
 
   useEffect(() => {
     if (!resultados.some(r => r.nivel < 2)) return undefined;
@@ -38,7 +59,7 @@ export default function LivePanel({ ativas, conectado, nomesDeAcoes }) {
     gravar('liveRecolhida', !recolhido);
     setRecolhido(!recolhido);
   }
-  function mudarTitulo(v) { setTitulo(v); setResultados([]); gravar('titulo', v); }
+  function mudarTitulo(v) { editado.current = true; setTitulo(v); setResultados([]); gravar('titulo', v); }
   // Põe o emoji onde está o cursor do título (no fim, se o campo nunca teve foco) e devolve o foco ao campo.
   function inserirNoTitulo(emoji) {
     const campo = campoTitulo.current;
@@ -47,7 +68,7 @@ export default function LivePanel({ ativas, conectado, nomesDeAcoes }) {
     mudarTitulo(titulo.slice(0, ini) + emoji + titulo.slice(fim));
     requestAnimationFrame(() => { if (campo) { campo.focus(); const p = ini + emoji.length; campo.setSelectionRange(p, p); } });
   }
-  function mudarCategoria(v) { setCategoria(v); setResultados([]); gravar('categoria', v); }
+  function mudarCategoria(v) { editado.current = true; setCategoria(v); setResultados([]); gravar('categoria', v); }
 
   function salvarAtalho() {
     const nome = categoria.trim();
@@ -80,6 +101,17 @@ export default function LivePanel({ ativas, conectado, nomesDeAcoes }) {
     setEnviando(false);
   }
 
+  // Opcional (ação Painel: Sem Categoria): pede à Twitch que fique sem categoria.
+  async function semCategoria() {
+    setCategoria('');
+    gravar('categoria', '');
+    editado.current = true;
+    const erro = await tirarCategoriaDaTwitch();
+    setResultados([erro
+      ? { plataforma: 'twitch', nivel: 2, texto: erro }
+      : { plataforma: 'twitch', nivel: 0, texto: 'pedi à Twitch para tirar a categoria' }]);
+  }
+
   const tecla = e => { if (e.key === 'Enter') confirmar(); };
   const resumo = [titulo.trim(), categoria.trim()].filter(Boolean).join(' · ');
 
@@ -110,6 +142,9 @@ export default function LivePanel({ ativas, conectado, nomesDeAcoes }) {
               </span>
             ))}
             <button type="button" className="link" onClick={salvarAtalho} disabled={!categoria.trim()}>+ Salvar categoria</button>
+            {nomesDeAcoes && temAcaoSemCategoria(nomesDeAcoes) && alvos.includes('twitch') && (
+              <button type="button" className="link" id="botao-sem-categoria" onClick={semCategoria} title="Tira a categoria do canal na Twitch">Sem categoria (Twitch)</button>
+            )}
           </div>
           {alvos.length === 0 && <p className="aviso">Nenhuma plataforma ativa: ligue uma no alto.</p>}
           {faltam.length > 0 && <p className="aviso">Faltam ações no Streamer.bot: {faltam.join(', ')} (o nome precisa ser exatamente igual; docs/INSTRUCOES.md, “Criar as ações no Streamer.bot”).</p>}

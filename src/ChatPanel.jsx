@@ -62,8 +62,31 @@ const ROTULO_DO_ALERTA = {
 const mesmoUsuario = (item, nome, plataforma) => item.tipo === 'chat' && item.plataforma === plataforma && item.nome.toLowerCase() === String(nome).toLowerCase();
 
 // memo: uma linha só refaz quando o seu item muda (as atualizações mantêm a identidade das demais).
-const Linha = memo(function Linha({ item, aoMenu, aoRapida }) {
+const STATUS_DA_RETIDA = { permitida: 'permitida', negada: 'negada', expirada: 'expirou sem resposta' };
+
+const Linha = memo(function Linha({ item, aoMenu, aoRapida, aoRetida }) {
   const plat = plataformaDe(item.plataforma);
+  if (item.tipo === 'retida') {
+    return (
+      <div className="linha linha-retida" id={`retida-${item.msgId}`} style={{ '--cor-plataforma': plat.cor }}>
+        <span className="hora">{item.hora}</span>
+        <span className="marca-plataforma"><IconePlataforma id={item.plataforma} /></span>
+        <div className="conteudo">
+          <span className="alerta-rotulo">Retida pelo AutoMod</span>
+          <b className="nome">{item.nome}</b>
+          <span className="dois-pontos">: </span>
+          <span className="texto">{item.texto}</span>
+          {item.motivo && <span className="alerta-detalhe">{item.motivo}</span>}
+          {item.status === 'pendente' || item.status === 'enviando' ? (
+            <span className="retida-botoes">
+              <button type="button" className="retida-permitir" disabled={item.status === 'enviando'} onClick={() => aoRetida('permitir', item)}>Permitir</button>
+              <button type="button" className="retida-negar" disabled={item.status === 'enviando'} onClick={() => aoRetida('negar', item)}>Negar</button>
+            </span>
+          ) : <span className="retida-status">{STATUS_DA_RETIDA[item.status]}</span>}
+        </div>
+      </div>
+    );
+  }
   if (item.tipo === 'alerta') {
     return (
       <div className={`linha linha-alerta${item.evento === 'reward' ? ' linha-resgate' : ''}`} style={{ '--cor-plataforma': plat.cor }}>
@@ -203,6 +226,15 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
           registrarPunicao({ plataforma: ev.plataforma, nome: ev.chatname, banido, segundos: ev.segundos || 0, login: ev.login, userId: ev.userid });
           break;
         }
+        case 'retida': {
+          const item = { uid: ++contador.current, tipo: 'retida', plataforma: ev.plataforma, msgId: ev.id, nome: ev.nome, texto: ev.texto, motivo: ev.motivo, status: 'pendente', hora: hora() };
+          setItens(l => acrescenta(l, [item]));
+          contaNovas([item]);
+          break;
+        }
+        case 'retidaAtualizada':
+          setItens(l => l.map(i => (i.tipo === 'retida' && String(i.msgId) === String(ev.id) ? { ...i, status: ev.status } : i)));
+          break;
         case 'limpar': {
           const item = alertaDaPlataforma(ev.plataforma, '', 'Chat limpo');
           setItens(l => acrescenta(l.map(i => (i.tipo === 'chat' && (!ev.plataforma || i.plataforma === ev.plataforma) && !i.apagada ? { ...i, apagada: true } : i)), [item]));
@@ -292,6 +324,15 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
     setMenu(null);
     setConfirmacao({ texto: `Banir ${item.nome} (${NOME_DA_PLATAFORMA[item.plataforma] || item.plataforma})?`, aoConfirmar: () => moderar('banir', item) });
   }
+  // Permitir ou negar uma mensagem retida pelo AutoMod: a ação do Streamer.bot responde se aceitou; o evento de atualização confirma depois.
+  async function moderarRetida(verbo, item) {
+    const mudar = status => setItens(l => l.map(i => (i.uid === item.uid ? { ...i, status } : i)));
+    mudar('enviando');
+    const erro = await executarChat(verbo, { plataforma: 'twitch', mensagemId: item.msgId });
+    if (erro) { mudar('pendente'); avisar(erro); return; }
+    mudar(verbo === 'permitir' ? 'permitida' : 'negada');
+  }
+
   function acaoRapida(verbo, item) {
     if (verbo === 'banir') pedirBanir(item);
     else if (verbo === 'silenciar') moderar('silenciar', item, SILENCIO_RAPIDO_S);
@@ -419,7 +460,7 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
 
       <div className="lista-chat" ref={lista} onScroll={aoRolar} id="lista-chat">
         {vazio && <p className="vazio">{!conectado ? 'As mensagens aparecem aqui quando o Streamer.bot estiver conectado.' : termo || usuarioFiltro ? 'Nenhuma mensagem encontrada.' : 'Nenhuma mensagem ainda.'}</p>}
-        {visiveis.map(i => <Linha key={i.uid} item={i} aoMenu={abrirMenu} aoRapida={acaoRapida} />)}
+        {visiveis.map(i => <Linha key={i.uid} item={i} aoMenu={abrirMenu} aoRapida={acaoRapida} aoRetida={moderarRetida} />)}
       </div>
       {novas > 0 && <button type="button" className="novas primario" onClick={irParaOFim}>{novas === 1 ? '1 nova ↓' : `${novas} novas ↓`}</button>}
 

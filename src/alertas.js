@@ -54,6 +54,8 @@ export const apareceNoChatGeral = (evento, escolhas = {}) => (typeof escolhas[ev
 // `aba` é 'tudo', 'alertas', o id de uma plataforma ou uma lista de ids de plataformas (várias abas de plataforma marcadas ao mesmo tempo). A aba de uma plataforma mostra o mesmo que a Tudo, só dessa plataforma (as
 // mensagens e os alertas escolhidos). Mensagem de plataforma nunca aparece na aba Alertas.
 export function passaNaAba(item, aba, escolhas = {}) {
+  // A mensagem retida pelo AutoMod precisa ser vista: aparece em Tudo, em Alertas e na aba da Twitch.
+  if (item.tipo === 'retida') return aba === 'tudo' || aba === 'alertas' || (Array.isArray(aba) ? aba : [aba]).includes(item.plataforma);
   if (aba === 'tudo') return item.tipo !== 'alerta' || apareceNoChatGeral(item.evento, escolhas);
   if (aba === 'alertas') return item.tipo === 'alerta';
   const plataformas = Array.isArray(aba) ? aba : [aba];
