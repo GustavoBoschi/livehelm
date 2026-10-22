@@ -7,6 +7,9 @@ import { definirTags, lerTags, temAcaoDeTags, NOME_DA_ACAO_DE_TAGS } from './aco
 import { adicionarTags, limparTags, mesmasTags, removerTag } from './tagsLista.js';
 import { IconePlataforma } from './Icones.jsx';
 import { PLATAFORMAS } from './plataformas.js';
+import { lerConfig } from './configuracoes.js';
+import YoutubeInfo from './YoutubeInfo.jsx';
+import { EVENTO_DAS_TAGS } from './predefinicoes.js';
 
 const MARCA = ['✓', '!', '✕']; // por nivel: ok, aviso, erro
 const MAX_TAGS = 10;
@@ -21,6 +24,14 @@ export default function Tags({ ativas, conectado, nomesDeAcoes }) {
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState(null); // { nivel, texto }
 
+  // Uma predefinição de live aplicada trocou as tags da Twitch: o painel passa a mostrá-las como as do canal.
+  useEffect(() => {
+    const aoAplicar = ev => { const tags = ev.detail && ev.detail.tags; if (Array.isArray(tags)) { setNoCanal(tags); setRascunho(tags); setTexto(''); setResultado(null); } };
+    window.addEventListener(EVENTO_DAS_TAGS, aoAplicar);
+    return () => window.removeEventListener(EVENTO_DAS_TAGS, aoAplicar);
+  }, []);
+
+  const comYoutube = lerConfig().youtubeInfo.ligado; // tags e descrição do YouTube no mesmo painel (ligado nas configurações)
   const faltaAcao = nomesDeAcoes && !temAcaoDeTags(nomesDeAcoes);
   const podeLer = conectado && ativas.twitch && nomesDeAcoes !== null && !faltaAcao;
   const final = adicionarTags(rascunho, texto); // o que o Aplicar manda: a lista em edição mais o que está digitado
@@ -78,8 +89,9 @@ export default function Tags({ ativas, conectado, nomesDeAcoes }) {
     <section className="cartao" id="painel-tags">
       <button type="button" className="cabecalho" onClick={alternarRecolhido} aria-expanded={!recolhido}>
         <span className="seta">{recolhido ? '▸' : '▾'}</span>
-        <span className="titulo-painel">Tags</span>
-        <span className="marca-twitch" style={{ color: PLATAFORMAS.twitch.cor }} title="Só funciona na Twitch"><IconePlataforma id="twitch" tamanho={13} /></span>
+        <span className="titulo-painel">{comYoutube ? 'Tags e descrição' : 'Tags'}</span>
+        <span className="marca-twitch" style={{ color: PLATAFORMAS.twitch.cor }} title="Tags da Twitch"><IconePlataforma id="twitch" tamanho={13} /></span>
+        {comYoutube && <span className="marca-twitch" style={{ color: PLATAFORMAS.youtube.cor }} title="Tags e descrição do YouTube"><IconePlataforma id="youtube" tamanho={13} /></span>}
         {recolhido && <span className="resumo">{rascunho.map(t => `#${t}`).join(' ')}</span>}
       </button>
       {!recolhido && (
@@ -106,6 +118,7 @@ export default function Tags({ ativas, conectado, nomesDeAcoes }) {
           {faltaAcao && <p className="aviso">Falta a ação “{NOME_DA_ACAO_DE_TAGS}” no Streamer.bot (o nome precisa ser exatamente igual; docs/INSTRUCOES.md, “Criar as ações no Streamer.bot”).</p>}
           {erroLeitura && <p className="aviso" id="erro-tags">Não consegui ler as tags do canal: {erroLeitura}. O que você aplicar troca as tags do canal.</p>}
           {resultado && <p className={`resultado-teste nivel-${resultado.nivel}`} id="resultado-tags">{MARCA[resultado.nivel]} {resultado.texto}</p>}
+          {comYoutube && <YoutubeInfo ativas={ativas} conectado={conectado} nomesDeAcoes={nomesDeAcoes} />}
         </div>
       )}
     </section>

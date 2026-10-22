@@ -144,6 +144,20 @@ input[type='text'], input[type='password'] {
 }
 input[type='text']:focus, input[type='password']:focus { border-color: var(--acento); }
 input::placeholder { color: var(--suave); }
+/* Regras de categoria do YouTube (Configuracoes.jsx): uma por linha, em fonte de largura fixa. */
+textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 10px;
+    border: 1px solid var(--borda);
+    border-radius: 8px;
+    background: var(--campo);
+    outline: none;
+    resize: vertical;
+    font: 12px/1.5 Consolas, 'Courier New', monospace;
+}
+textarea:focus { border-color: var(--acento); }
+textarea::placeholder { color: var(--suave); }
 
 button.primario {
     height: 32px;
@@ -406,8 +420,11 @@ select:focus { border-color: var(--acento); }
 .plataforma-ativa .plataforma-tempo { color: var(--texto); }
 
 /* Linha de saúde do OBS, abaixo dos botões de plataforma (SaudeDoObs.jsx). */
-.saude-obs { flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 1px 10px; padding: 0 4px; font-size: 11px; color: var(--suave); }
-.saude-obs-parada { opacity: 0.8; }
+.saude-obs { flex-shrink: 0; display: flex; flex-wrap: nowrap; align-items: center; gap: 0 10px; height: 15px; padding: 0 4px; overflow: hidden; white-space: nowrap; font-size: 11px; line-height: 15px; color: var(--suave); }
+.saude-obs > span { flex-shrink: 0; }
+/* O aviso de problema fica ao lado do Live On/Off, numa linha só: se faltar espaço corta com "…" em vez de quebrar e empurrar o chat. */
+.saude-obs > .saude-aviso { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.saude-obs-parada { display: block; opacity: 0.8; text-overflow: ellipsis; }
 .ms-ok { color: var(--ok); }
 .ms-atencao { color: var(--aviso); }
 .ms-ruim { color: var(--erro); }
@@ -435,3 +452,105 @@ select:focus { border-color: var(--acento); }
 .retida-botoes .retida-negar:hover:not(:disabled) { background: rgba(240, 80, 80, 0.25); border-color: rgba(240, 80, 80, 0.7); }
 .retida-botoes button:disabled { opacity: 0.5; cursor: default; }
 .retida-status { margin-left: 8px; font-size: 12px; color: var(--suave); font-style: italic; }
+
+/* Espectadores: o número no alto e, ao passar o mouse, um cartãozinho com a contagem de cada plataforma (ícone colorido e número, sem texto). */
+.espectadores { position: relative; cursor: default; outline: none; }
+.espectadores-detalhe {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 60;
+    gap: 14px;
+    padding: 7px 13px;
+    background: var(--elevado);
+    border: 1px solid var(--borda);
+    border-radius: 10px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+.espectadores:hover .espectadores-detalhe, .espectadores:focus .espectadores-detalhe { display: flex; }
+.espectadores-linha { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: var(--texto); }
+.espectadores-linha .icone { color: var(--cor-plataforma); }
+
+/* Resultado de título e categoria: um cartão que flutua logo embaixo do painel Live, por cima do que vem depois, sem empurrar nada. Clique para fechar. */
+#painel-live { position: relative; }
+.resultados-flutuantes {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    top: calc(100% + 4px);
+    z-index: 50;
+    padding: 6px 10px;
+    background: var(--elevado);
+    border: 1px solid var(--borda);
+    border-radius: 10px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+}
+
+/* Botão de mudo do microfone (BotaoMic.jsx): uma caixinha no alto, do lado esquerdo da bolinha azul. Verde com o microfone aberto, vermelho cheio no mudo, cinza sem OBS. */
+.botao-mic {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 25px;
+    padding: 0;
+    border: 1px solid var(--ok);
+    border-radius: 7px;
+    background: rgba(74, 222, 128, 0.16);
+    color: var(--ok);
+    margin-left: auto;
+}
+.botao-mic + .bolinha-paineis { margin-left: 0; }
+/* Com a caixinha do microfone no alto, a barra aperta os espaços para continuar numa linha só em docks estreitos (a altura dela não pode mudar). */
+.barra-com-mic { gap: 5px; }
+.barra-com-mic .plataformas { gap: 4px; }
+.barra-com-mic .plataforma { padding: 0 5px; }
+.barra-com-mic .espectadores { padding: 2px 5px; margin-left: 0; }
+.barra-com-mic .botao-mic { width: 26px; }
+.botao-mic:hover:not(:disabled) { background: rgba(74, 222, 128, 0.3); }
+.botao-mic.mic-mudo { border-color: #e5484d; background: #e5484d; color: #fff; }
+.botao-mic.mic-mudo:hover:not(:disabled) { background: #f0565b; }
+.botao-mic.mic-indisponivel { border-color: var(--borda); background: var(--elevado); color: var(--suave); opacity: 0.8; }
+
+/* Modos do chat da Twitch (ModosDoChat.jsx): quatro botões de liga e desliga; o ligado fica no acento. */
+.modos-chat { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; }
+.modo-chat { height: 32px; padding: 0 8px; border: 1px solid var(--borda-forte); border-radius: 8px; background: var(--elevado); font-weight: 600; }
+.modo-chat:hover:not(:disabled) { background: var(--elevado-sobre); }
+.modo-chat-ligado { border-color: var(--acento); background: rgba(var(--acento-rgb), 0.25); color: var(--texto); }
+.titulo-painel .icone { vertical-align: -2px; color: #9146ff; }
+
+/* Momentos: o botão de clipe da Twitch ao lado de Marcar momento. */
+.linha-botoes-momento { display: flex; gap: 6px; }
+.linha-botoes-momento button.primario { flex: 1; min-width: 0; }
+.botao-clipe { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid #9146ff; border-radius: 8px; background: rgba(145, 70, 255, 0.18); font-weight: 600; white-space: nowrap; }
+.botao-clipe:hover:not(:disabled) { background: rgba(145, 70, 255, 0.32); }
+.botao-clipe .icone { color: #9146ff; }
+
+/* Predefinições de live (Predefinicoes.jsx): os resultados flutuam como os do painel Live; a aplicada fica no acento. */
+#painel-predefinicoes { position: relative; }
+.predefinicoes-lista { display: flex; flex-wrap: wrap; gap: 6px; }
+.predefinicao-aplicada { border-color: var(--acento); background: rgba(var(--acento-rgb), 0.22); }
+.linha-botoes { display: flex; gap: 6px; }
+
+/* Regras da categoria do YouTube (Configuracoes.jsx): cada linha tem as palavras e, embaixo, a categoria escolhida numa lista. */
+.regras-youtube { display: flex; flex-direction: column; gap: 8px; }
+.regra-youtube { display: flex; flex-direction: column; gap: 4px; }
+.regra-youtube-linha { display: flex; align-items: center; gap: 6px; }
+.regra-youtube-linha select { flex: 1; min-width: 0; }
+.regra-igual { color: var(--suave); font-weight: 700; }
+.regra-apagar { padding: 4px 6px; border: 1px solid var(--borda); border-radius: 6px; background: var(--elevado); }
+
+/* Seção das configurações que recolhe (Alertas no chat): o título é um botão com a seta, e recolhida mostra um resumo. */
+.config-recolher { display: flex; align-items: center; gap: 8px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 700; text-align: left; }
+.config-recolher .seta { width: 10px; color: var(--suave); }
+.config-secao h3 .resumo { font-weight: 400; }
+
+/* Tags e descrição do YouTube (YoutubeInfo.jsx), no painel Tags, separados das tags da Twitch por uma linha. */
+.youtube-info { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--borda); }
+.youtube-info-titulo { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 13px; }
+.youtube-info-rodape { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.youtube-info textarea { min-height: 70px; font: inherit; font-size: 13px; line-height: 1.4; }

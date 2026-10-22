@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 import SeletorDeEmoji from './Emojis.jsx';
 import { ler, gravar } from './armazenamento.js';
+import { EVENTO_DOS_CAMPOS } from './predefinicoes.js';
 import { PLATAFORMAS_DO_DOCK, NOME_DA_PLATAFORMA, acoesQueFaltam, aoAplicarPendenteDoYoutube, atualizarLive, lerCanal, normalizar, temAcaoDeTags, temAcaoSemCategoria, tirarCategoriaDaTwitch } from './acoes.js';
 
 const MAX_HISTORICO = 60;
@@ -23,6 +24,12 @@ export default function LivePanel({ ativas, conectado, nomesDeAcoes }) {
   const [resultados, setResultados] = useState([]);
   const campoTitulo = useRef(null);
   useEffect(() => aoAplicarPendenteDoYoutube(r => setResultados(rs => [...rs.filter(x => x.plataforma !== 'youtube'), r])), []);
+  // Uma predefinição de live aplicada põe o título e a categoria nos campos (ela já os guardou e já enviou às plataformas).
+  useEffect(() => {
+    const aoAplicar = ev => { const d = ev.detail || {}; setTitulo(d.titulo || ''); setCategoria(d.categoria || ''); setResultados([]); };
+    window.addEventListener(EVENTO_DOS_CAMPOS, aoAplicar);
+    return () => window.removeEventListener(EVENTO_DOS_CAMPOS, aoAplicar);
+  }, []);
   const editado = useRef(false); // a pessoa mexeu nos campos: a leitura do canal não pode passar por cima
   const jaLeu = useRef(false);
 
@@ -94,9 +101,12 @@ export default function LivePanel({ ativas, conectado, nomesDeAcoes }) {
     setResultados([]);
     const t = titulo.trim();
     const c = categoria.trim();
-    const feitos = [];
-    for (const p of alvos) feitos.push(await atualizarLive(p, t, c));
-    setResultados(feitos);
+    // As plataformas vão juntas e cada resultado aparece assim que chega (antes uma esperava a outra terminar).
+    const feitos = await Promise.all(alvos.map(async p => {
+      const r = await atualizarLive(p, t, c);
+      setResultados(rs => [...rs.filter(x => x.plataforma !== p), r].sort((a, b) => PLATAFORMAS_DO_DOCK.indexOf(a.plataforma) - PLATAFORMAS_DO_DOCK.indexOf(b.plataforma)));
+      return r;
+    }));
     lembrar(feitos.map(r => r.categoriaFeita).filter(Boolean));
     setEnviando(false);
   }
@@ -149,7 +159,7 @@ export default function LivePanel({ ativas, conectado, nomesDeAcoes }) {
           {alvos.length === 0 && <p className="aviso">Nenhuma plataforma ativa: ligue uma no alto.</p>}
           {faltam.length > 0 && <p className="aviso">Faltam ações no Streamer.bot: {faltam.join(', ')} (o nome precisa ser exatamente igual; docs/INSTRUCOES.md, “Criar as ações no Streamer.bot”).</p>}
           {resultados.length > 0 && (
-            <ul className="resultados" id="resultados-live">
+            <ul className="resultados resultados-flutuantes" id="resultados-live" title="Clique para fechar" onClick={() => setResultados([])}>
               {resultados.map(r => (
                 <li key={`${r.plataforma}-${r.texto}`} className={`nivel-${r.nivel}`}><b>{MARCA[r.nivel]} {NOME_DA_PLATAFORMA[r.plataforma]}:</b> {r.texto}</li>
               ))}

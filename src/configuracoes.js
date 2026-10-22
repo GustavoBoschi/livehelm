@@ -3,6 +3,7 @@
 import { ler, gravar } from './armazenamento.js';
 import { STREAMERBOT_URL, STREAMERBOT_SENHA, OBS_URL, OBS_SENHA } from './config.js';
 import { ANTECEDENCIA_PADRAO_S } from './anuncios.js';
+import { REGRAS_PADRAO_DO_YOUTUBE, normalizarRegrasDoYoutube } from './titulos.js';
 
 // Cores de destaque e conjuntos de fundo oferecidos na tela de configurações.
 export const ACENTOS = [
@@ -31,11 +32,19 @@ const PADRAO = {
   momentos: { pasta: '', tituloDeClipe: false }, // pasta vazia = a Clipes ao lado do dock
   alertasNoChat: { escolhas: {} }, // { tipo de alerta: true | false }; o que não está aqui segue o padrão de alertas.js
   anuncio: { ligado: false, antecedencia: ANTECEDENCIA_PADRAO_S }, // o aviso vem desligado: o botão Adiar mexe na live
-  // YouTube: a categoria que a ação `Painel: YouTube` põe na transmissão (uma da lista fixa do YouTube, como Gaming; o jogo não dá pra escolher
-  // pela API). Vazia = não mexe na categoria.
-  youtube: { categoria: 'Gaming' },
+  // YouTube: as regras que escolhem a categoria da transmissão conforme a live (uma linha por categoria do YouTube, com as palavras que a identificam; a linha de
+  // jogos é a de qualquer jogo: Gaming). O jogo em si não dá pra escolher pela API. Ver titulos.js.
+  youtube: { regras: REGRAS_PADRAO_DO_YOUTUBE },
   // Saúde do OBS: a linha de fps, CPU e rede no alto. Só lê o OBS, então vem ligada; é independente do Painel de Multistream.
   saude: { ligada: true },
+  // Predefinições de live (Predefinicoes.jsx), modos do chat da Twitch (ModosDoChat.jsx), botão de clipe (no painel Momentos) e botão de mudo do microfone
+  // (BotaoMic.jsx): painéis e botões novos, todos desligados até a pessoa ligar nas configurações. `entrada` é o nome da entrada de áudio do microfone no OBS.
+  presets: { ligado: false },
+  // Tags e descrição do YouTube no painel Tags (YoutubeInfo.jsx): desligado, porque a descrição troca o texto da live.
+  youtubeInfo: { ligado: false },
+  modosDoChat: { ligado: false, lentoSegundos: 30, seguidoresMinutos: 0 },
+  clipe: { ligado: false, duracao: 30 },
+  mic: { ligado: false, entrada: '' },
   // Painel de Multistream: o painel com os botões Iniciar e Parar lives (que pedem confirmação). Vem desligado: os botões mexem na live, então
   // quem os quer liga nas configurações.
   multistream: { ligado: false },
@@ -49,7 +58,10 @@ const cssRgb = rgb => rgb.join(', ');
 // Lê a configuração salva por cima do padrão (seção por seção, então uma seção nova nunca some).
 export function lerConfig() {
   const salvo = ler('config', {});
-  return Object.fromEntries(Object.keys(PADRAO).map(k => [k, { ...PADRAO[k], ...(salvo[k] || {}) }]));
+  const config = Object.fromEntries(Object.keys(PADRAO).map(k => [k, { ...PADRAO[k], ...(salvo[k] || {}) }]));
+  // As regras do YouTube já foram um texto ("texto = Categoria") e uma categoria só (`categoria`): as versões antigas viram a lista de hoje.
+  config.youtube = { ...config.youtube, regras: normalizarRegrasDoYoutube(config.youtube.regras, config.youtube.categoria) };
+  return config;
 }
 
 export function gravarSecao(secao, valores) {

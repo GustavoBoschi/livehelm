@@ -47,11 +47,23 @@ export function valorDaResposta(resposta, pedido) {
   return valor && typeof valor === 'object' && valor.pedido === pedido ? valor : null;
 }
 
-// A resposta da ação `Painel: YouTube` ({ pedido, ok, erro, titulo, categoria, avisos }): null enquanto não chegou.
+// A resposta da ação `Painel: YouTube` ({ pedido, ok, erro, titulo, categoria, avisos, semTransmissao, versao, descricao, tags, descricaoOk, tagsOk }): null
+// enquanto não chegou. `versao` é 1 para o código antigo da ação, que não manda esse campo e também não mexe em tags nem descrição.
 export function respostaDoYoutube(resposta, pedido) {
   const valor = valorDaResposta(resposta, pedido);
   if (!valor) return null;
-  return { ok: valor.ok === true, erro: String(valor.erro || ''), titulo: String(valor.titulo || ''), categoria: String(valor.categoria || ''), avisos: String(valor.avisos || ''), semTransmissao: valor.semTransmissao === true };
+  return {
+    ok: valor.ok === true, erro: String(valor.erro || ''), titulo: String(valor.titulo || ''), categoria: String(valor.categoria || ''), avisos: String(valor.avisos || ''),
+    semTransmissao: valor.semTransmissao === true, versao: Number(valor.versao) || 1, descricao: String(valor.descricao || ''),
+    tags: Array.isArray(valor.tags) ? valor.tags.map(String) : [], descricaoOk: valor.descricaoOk !== false, tagsOk: valor.tagsOk !== false,
+  };
+}
+
+// A resposta da ação `Painel: Controles` ({ pedido, ok, erro, url }): null enquanto não chegou. `url` é o link do clipe criado.
+export function respostaDosControles(resposta, pedido) {
+  const valor = valorDaResposta(resposta, pedido);
+  if (!valor) return null;
+  return { ok: valor.ok === true, erro: String(valor.erro || ''), url: String(valor.url || '') };
 }
 
 // Interpreta a resposta do GetGlobal da variável que a ação `Painel: Tags` escreve ({ pedido, ok, tags, erro, titulo, categoria, afiliado,

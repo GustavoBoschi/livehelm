@@ -7,7 +7,9 @@ import { ler, gravar } from './armazenamento.js';
 import { lerConfig, pastaPadraoDosClipes } from './configuracoes.js';
 import { pastaDeClipesValida } from './pastaClipes.js';
 import { tempoDoOBS, formatarTempo } from './obs.js';
-import { registrarMomento, temAcaoDeMomentos, NOME_DA_ACAO_DE_MOMENTOS } from './acoes.js';
+import { criarClipe, registrarMomento, temAcaoDeControles, temAcaoDeMomentos, NOME_DA_ACAO_DE_CONTROLES, NOME_DA_ACAO_DE_MOMENTOS } from './acoes.js';
+import { copiarTexto } from './texto.js';
+import { IconePlataforma } from './Icones.jsx';
 
 const MAX_LISTA = 40;
 const MARCA = ['✓', '!', '✕'];
@@ -15,17 +17,22 @@ const MARCA = ['✓', '!', '✕'];
 // "Clipes - <título da live>": sem título, "Clipes - Sem título".
 const nomeDoArquivo = titulo => `Clipes - ${titulo.trim() || 'Sem título'}`;
 
-export default function Momentos({ conectado, nomesDeAcoes }) {
+export default function Momentos({ conectado, nomesDeAcoes, ativas }) {
   const [recolhido, setRecolhido] = useState(() => ler('momentosRecolhido', false));
   const [titulo, setTitulo] = useState('');
   const [marcando, setMarcando] = useState(false);
   const [resultado, setResultado] = useState(null); // { nivel, texto }
   const [versao, setVersao] = useState(0);          // força reler a lista gravada
+  const [criandoClipe, setCriandoClipe] = useState(false);
+  const [clipe, setClipe] = useState(null);             // { nivel, texto, url? } do último clipe pedido
+  const [copiado, setCopiado] = useState(false);
   const config = lerConfig();
   const arquivo = nomeDoArquivo(ler('titulo', ''));
   const lista = ler(`momentos.${arquivo}`, []);
   const faltaAcao = nomesDeAcoes && !temAcaoDeMomentos(nomesDeAcoes);
   const pode = conectado && !marcando && !faltaAcao && nomesDeAcoes !== null;
+  const faltaAcaoDeClipe = nomesDeAcoes && !temAcaoDeControles(nomesDeAcoes);
+  const podeClipe = conectado && !criandoClipe && !faltaAcaoDeClipe && nomesDeAcoes !== null && (!ativas || ativas.twitch);
 
   function alternarRecolhido() {
     gravar('momentosRecolhido', !recolhido);
@@ -66,6 +73,20 @@ export default function Momentos({ conectado, nomesDeAcoes }) {
     setMarcando(false);
   }
 
+  // Clipe da live na Twitch (botão ligado nas configurações): a ação `Painel: Controles` pede o clipe e devolve o link.
+  async function fazerClipe() {
+    if (!podeClipe) return;
+    setCriandoClipe(true);
+    setClipe(null);
+    setCopiado(false);
+    setClipe(await criarClipe({ duracao: lerConfig().clipe.duracao }));
+    setCriandoClipe(false);
+  }
+  function copiarLink() {
+    copiarTexto(clipe.url);
+    setCopiado(true);
+  }
+
   function limparLista() {
     gravar(`momentos.${arquivo}`, []);
     setVersao(v => v + 1);
@@ -86,7 +107,22 @@ export default function Momentos({ conectado, nomesDeAcoes }) {
             <input id="campo-titulo-clipe" type="text" value={titulo} placeholder={`Título do clipe (vazio: Clipe ${ler(`contador.${arquivo}`, 0) + 1})`}
                    spellCheck onChange={e => setTitulo(e.target.value)} onKeyDown={tecla} />
           )}
-          <button type="button" id="botao-marcar" className="primario" disabled={!pode} onClick={marcar}>{marcando ? 'Marcando…' : 'Marcar momento'}</button>
+          <div className="linha-botoes-momento">
+            <button type="button" id="botao-marcar" className="primario" disabled={!pode} onClick={marcar}>{marcando ? 'Marcando…' : 'Marcar momento'}</button>
+            {config.clipe.ligado && (
+              <button type="button" id="botao-clipe" className="botao-clipe" disabled={!podeClipe} onClick={fazerClipe}
+                      title={ativas && !ativas.twitch ? 'A Twitch está desligada no alto' : 'Cria um clipe da live na Twitch'}>
+                <IconePlataforma id="twitch" tamanho={15} /> {criandoClipe ? 'Criando…' : 'Clipe na Twitch'}
+              </button>
+            )}
+          </div>
+          {config.clipe.ligado && faltaAcaoDeClipe && <p className="aviso">Falta a ação “{NOME_DA_ACAO_DE_CONTROLES}” no Streamer.bot para o clipe (o nome precisa ser exatamente igual; docs/INSTRUCOES.md, “Criar as ações no Streamer.bot”).</p>}
+          {clipe && (
+            <p className={`resultado-teste nivel-${clipe.nivel}`} id="resultado-clipe">
+              {MARCA[clipe.nivel]} {clipe.nivel === 0 ? clipe.url || clipe.texto : clipe.texto}
+              {clipe.nivel === 0 && clipe.url && <> <button type="button" className="link" id="copiar-clipe" onClick={copiarLink}>{copiado ? 'Copiado!' : 'Copiar link'}</button></>}
+            </p>
+          )}
           <p className="dica" id="arquivo-momentos">Arquivo: {arquivo}.txt</p>
           {faltaAcao && <p className="aviso">Falta a ação “{NOME_DA_ACAO_DE_MOMENTOS}” no Streamer.bot (o nome precisa ser exatamente igual; docs/INSTRUCOES.md, “Criar as ações no Streamer.bot”).</p>}
           {resultado && <p className={`resultado-teste nivel-${resultado.nivel}`} id="resultado-momento">{MARCA[resultado.nivel]} {resultado.texto}</p>}

@@ -11,6 +11,7 @@ import { executarChat, NOME_DA_PLATAFORMA, PLATAFORMAS_DO_DOCK } from './acoes.j
 import { IconePlataforma, Traco } from './Icones.jsx';
 import { PopupPunicoes } from './Listas.jsx';
 import { registrar } from './punicoes.js';
+import { lembrarResgate, mensagemRepeteResgate, mesmoTextoDoResgate } from './resgates.js';
 import { copiarTexto, corLegivel, duracao, hora, partesDaMensagem, simplificar } from './texto.js';
 
 const MAX_ITENS = 400;
@@ -18,7 +19,7 @@ const MAX_FIXADAS = 3;
 const STATUS_MS = 9000;
 const PERTO_DO_FIM_PX = 24;   // até essa distância do fim da lista ela segue as mensagens novas
 const SILENCIO_RAPIDO_S = 300; // o silêncio do botão da linha
-const COMANDOS = 'Comandos: /ban nome · /timeout nome segundos · /limpar (só Twitch)';
+const COMANDOS = 'Comandos: /ban nome · /timeout nome segundos · /limpar (só Twitch) · /limpardock (só o chat daqui)';
 
 const ABAS = [
   { id: 'tudo', dica: 'Tudo: mostra as mensagens de todas as plataformas e os alertas principais (seguidor, sub, presente, apoio e raid), e envia para as ativas no alto', icone: 'globo' },
@@ -150,6 +151,7 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
   const escolhas = useMemo(() => lerConfig().alertasNoChat.escolhas, [oculto]);
   const temporizadorStatus = useRef(null);
   const contador = useRef(0);
+  const resgatesRecentes = useRef([]); // resgates com texto dos últimos segundos (resgates.js): a mensagem igual do chat não entra de novo
   itensRef.current = itens;
 
   const termo = simplificar(busca.trim());
@@ -194,8 +196,10 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
       switch (ev.tipo) {
         case 'chat': {
           const m = ev.mensagem;
+          // A mensagem em destaque (e a de recompensa com texto) já aparece como resgate, com o texto: não repete.
+          if (mensagemRepeteResgate(resgatesRecentes.current, { plataforma: m.type, nome: m.chatname, texto: m.chattexto || '' })) break;
           const item = {
-            uid: ++contador.current, tipo: 'chat', plataforma: m.type, msgId: m.id, userId: m.userid, login: m.username, nome: m.chatname,
+            uid: ++contador.current, criadoEm: Date.now(), tipo: 'chat', plataforma: m.type, msgId: m.id, userId: m.userid, login: m.username, nome: m.chatname,
             cor: m.nameColor, html: m.chatmessage, texto: m.chattexto || '', insignias: m.chatbadges || [], hora: hora(), apagada: false, primeira: !!m.primeira,
           };
           setItens(a => acrescenta(a, [item]));
@@ -208,6 +212,12 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
           const nome = a.principal || a.chatname;
           const detalhe = [a.destaque, a.detalhe].filter(Boolean).join(' · ');
           const item = alertaDaPlataforma(a.type, nome, rotulo, detalhe, a.event, a.mensagem || '');
+          if (a.event === 'reward' && a.mensagem) {
+            // Se a mensagem do chat chegou antes do resgate, ela sai da lista (o resgate fica com o texto).
+            const resgate = { plataforma: a.type, nome: a.chatname, texto: a.mensagem };
+            resgatesRecentes.current = lembrarResgate(resgatesRecentes.current, resgate);
+            setItens(l => l.filter(i => !(i.tipo === 'chat' && mesmoTextoDoResgate({ ...resgate, quando: Date.now() }, { plataforma: i.plataforma, nome: i.nome, texto: i.texto, quando: i.criadoEm || 0 }))));
+          }
           setItens(l => acrescenta(l, [item]));
           contaNovas([item]);
           break;
@@ -377,6 +387,14 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
   async function enviar() {
     const t = texto.trim();
     if (!t || enviando) return;
+    // /limpardock: esvazia só a lista de mensagens do LiveHelm; nada é apagado nas plataformas.
+    if (/^\/(limpardock|limparlocal)\s*$/i.test(t)) {
+      setItens([]);
+      setNovas(0);
+      setTexto('');
+      avisar('Chat do LiveHelm limpo (nada foi apagado nas plataformas)', false);
+      return;
+    }
     let destinos = Array.isArray(filtro) ? filtro : PLATAFORMAS_DO_DOCK.filter(p => ativas[p]);
     if (destinos.length === 0) { avisar('Ative uma plataforma no alto ou escolha a aba de uma delas.'); return; }
     let verbo = 'enviar';

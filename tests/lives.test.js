@@ -76,3 +76,26 @@ test('avisos de qualidade em português simples, do mais grave ao mais leve, e v
   assert.equal(problemasDaTransmissao({ ...calmo, reconectando: true })[0].texto, 'Reconectando com a plataforma…');
   assert.equal(problemasDaTransmissao({ ...calmo, congestao: 0.5 })[0].texto, 'A internet está ruim e a live pode estar falhando');
 });
+
+import { estadoDoObs } from '../src/lives.js';
+
+test('estadoDoObs: no ar pela principal ou por um destino, parada quando nada transmite, desconhecida sem leitura', () => {
+  assert.equal(estadoDoObs(null), 'desconhecida');
+  assert.equal(estadoDoObs({ conectado: false }), 'desconhecida');
+  assert.equal(estadoDoObs({ conectado: true, ativo: false, principalAtiva: false }), 'parada');
+  assert.equal(estadoDoObs({ conectado: true, ativo: false, principalAtiva: true }), 'no-ar');
+  assert.equal(estadoDoObs({ conectado: true, ativo: true, principalAtiva: false }), 'no-ar');
+});
+
+test('todo problema da transmissão tem um texto curto, que cabe ao lado do Live On sem quebrar a linha da saúde', () => {
+  const calmo = { congestao: 0, reconectando: false, renderPct: 0, encoderPct: 0, fps: 60, msPorQuadro: 5 };
+  const casos = [
+    { ...calmo, reconectando: true }, { ...calmo, congestao: 0.5 }, { ...calmo, congestao: 0.1 },
+    { ...calmo, encoderPct: 5 }, { ...calmo, encoderPct: 1 }, { ...calmo, renderPct: 5 }, { ...calmo, renderPct: 1 }, { ...calmo, msPorQuadro: 16 },
+  ];
+  for (const c of casos) {
+    const [p] = problemasDaTransmissao(c);
+    assert.ok(p, JSON.stringify(c));
+    assert.ok(p.curto && p.curto.length <= 26 && p.curto.length < p.texto.length, `${p.texto} -> ${p.curto}`);
+  }
+});

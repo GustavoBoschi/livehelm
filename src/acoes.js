@@ -2,9 +2,9 @@
 // nomes das ações e os argumentos (acao, plataforma, usuario...) são os da ação `Painel: Chat` (código em
 // acoes-streamerbot/Painel-Chat.cs): mudou lá, mude aqui.
 import { pedirStreamerbot } from './streamerbot.js';
-import { aguardarLeitura, respostaDoYoutube } from './tagsLista.js';
+import { aguardarLeitura, respostaDoYoutube, respostaDosControles } from './tagsLista.js';
 import { lerConfig } from './configuracoes.js';
-import { tituloDoYoutube, variantesDeCategoria } from './titulos.js';
+import { tituloDoYoutube, variantesDeCategoria, categoriaDoYoutube, descricaoDoYoutube, tagsDoYoutube } from './titulos.js';
 import { ler, gravar } from './armazenamento.js';
 
 export const PLATAFORMAS_DO_DOCK = ['twitch', 'kick', 'youtube'];
@@ -19,7 +19,9 @@ const ACAO_MOMENTOS = 'Painel: Momentos';
 const ACAO_SEM_CATEGORIA = 'Painel: Sem Categoria'; // opcional (Painel-SemCategoria.cs): tira a categoria da Twitch
 const VARIAVEL_DO_YOUTUBE = 'painelYoutube'; // global não persistente com o resultado da Painel: YouTube (Painel-YouTube.cs)
 const ACAO_ANUNCIO = 'Painel: Anuncio'; // sem acento de propósito: o nome tem que ser idêntico nos dois lados
-const CONFIRMACAO_MS = 7000; // quanto esperar o aviso que confirma o título e a categoria
+const ACAO_CONTROLES = 'Painel: Controles'; // Painel-Controles.cs: modos do chat da Twitch e clipe
+const VARIAVEL_DOS_CONTROLES = 'painelControles'; // global não persistente com o resultado da Painel: Controles
+const CONFIRMACAO_MS = 3500; // quanto esperar o aviso que confirma o título e a categoria (a Kick nunca confirma: o resultado sai depois disso)
 
 let acoes = null; // ações do Streamer.bot ([{ id, name }]); null = ainda não carregou
 const achar = nome => (acoes || []).find(a => a.name === nome) || null;
@@ -50,6 +52,9 @@ export const NOME_DA_ACAO_DE_TAGS = ACAO_TAGS;
 export const NOME_DA_ACAO_DE_MOMENTOS = ACAO_MOMENTOS;
 export const temAcaoDeAnuncio = nomes => (nomes || []).includes(ACAO_ANUNCIO);
 export const NOME_DA_ACAO_DE_ANUNCIO = ACAO_ANUNCIO;
+export const temAcaoDeControles = nomes => (nomes || []).includes(ACAO_CONTROLES);
+export const NOME_DA_ACAO_DE_CONTROLES = ACAO_CONTROLES;
+export const NOME_DA_ACAO_DO_YOUTUBE = ACAO_DA_LIVE.youtube;
 export const temAcaoSemCategoria = nomes => (nomes || []).includes(ACAO_SEM_CATEGORIA);
 export const NOME_DA_ACAO_SEM_CATEGORIA = ACAO_SEM_CATEGORIA;
 
@@ -105,6 +110,15 @@ function lembrarApelido(plataforma, nome, usado) {
 // o dock guarda o título (e a categoria) e os aplica sozinho quando a live do YouTube começar (youtubeComecou, chamada pelo App).
 let pendenteDoYoutube = ler('youtubePendente', null); // { titulo, categoria } ou null
 const ouvintesDoPendente = new Set();
+// Tags e descrição do YouTube que ficaram esperando a live abrir: { tags, trocarTags, descricao, trocarDescricao } ou null (youtubeComecou os aplica).
+let infoPendenteDoYoutube = ler('youtubeInfoPendente', null);
+const ouvintesDaInfo = new Set();
+export const aoAplicarInfoPendenteDoYoutube = ouvinte => { ouvintesDaInfo.add(ouvinte); return () => ouvintesDaInfo.delete(ouvinte); };
+export const infoPendenteDoYoutubeAgora = () => infoPendenteDoYoutube;
+function guardarInfoPendenteDoYoutube(valor) {
+  infoPendenteDoYoutube = valor;
+  gravar('youtubeInfoPendente', valor);
+}
 export const aoAplicarPendenteDoYoutube = ouvinte => { ouvintesDoPendente.add(ouvinte); return () => ouvintesDoPendente.delete(ouvinte); };
 export const pendenteDoYoutubeAgora = () => pendenteDoYoutube;
 function guardarPendenteDoYoutube(valor) {
@@ -115,81 +129,157 @@ function guardarPendenteDoYoutube(valor) {
 // Chamada quando o YouTube avisa que a transmissão começou: se havia um título guardado, tenta aplicá-lo (a monitoração pode levar alguns
 // segundos para começar, então tenta de novo até duas vezes) e entrega o resultado a quem estiver ouvindo (o painel Live).
 export function youtubeComecou(atrasoMs = 4000, intervaloMs = 8000) {
-  if (!pendenteDoYoutube) return;
+  if (!pendenteDoYoutube && !infoPendenteDoYoutube) return;
   const tentar = async restantes => {
     const acao = achar(ACAO_DA_LIVE.youtube);
-    if (!acao || !pendenteDoYoutube) return;
-    const r = await atualizarYoutube(acao, pendenteDoYoutube.titulo, pendenteDoYoutube.categoria);
-    if (r.semTransmissao && restantes > 0) { setTimeout(() => tentar(restantes - 1), intervaloMs); return; }
-    const resultado = r.nivel === 0 ? { ...r, texto: `a live do YouTube começou: ${r.texto}` } : r;
-    ouvintesDoPendente.forEach(f => f(resultado));
+    if (!acao) return;
+    let refazer = false;
+    if (pendenteDoYoutube) {
+      const r = await atualizarYoutube(acao, pendenteDoYoutube.titulo, pendenteDoYoutube.categoria, pendenteDoYoutube.categoriaYoutube);
+      if (r.semTransmissao && restantes > 0) refazer = true;
+      else ouvintesDoPendente.forEach(f => f(r.nivel === 0 ? { ...r, texto: 'atualizado ao abrir a live' } : r));
+    }
+    if (infoPendenteDoYoutube) {
+      const r = await enviarInfoDoYoutube(acao, infoPendenteDoYoutube);
+      if (r.semTransmissao && restantes > 0) refazer = true;
+      else ouvintesDaInfo.forEach(f => f(r.nivel === 0 ? { ...r, texto: `${r.texto} ao abrir a live` } : r));
+    }
+    if (refazer) setTimeout(() => tentar(restantes - 1), intervaloMs);
   };
   setTimeout(() => tentar(2), atrasoMs);
 }
 
-async function atualizarYoutube(acao, titulo, categoria) {
+// `forcada`: a categoria do YouTube de uma predefinição de live (vazia = as regras das configurações decidem).
+async function atualizarYoutube(acao, titulo, categoria, forcada = '') {
   const plataforma = 'youtube';
   const pedido = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
-  const erro = await executar(acao, { tituloLive: titulo, categoriaLive: categoria, categoriaYoutube: lerConfig().youtube.categoria.trim(), pedido });
-  if (erro) return { plataforma, nivel: 2, categoriaOk: true, texto: `o Streamer.bot recusou o pedido (${erro}). Confira se a ação “${ACAO_DA_LIVE.youtube}” está ativa e se o YouTube está conectado nele` };
-  const r = await aguardarLeitura(() => pedirStreamerbot({ request: 'GetGlobal', variable: VARIAVEL_DO_YOUTUBE, persisted: false }), pedido, { limiteMs: 4000, interpretar: respostaDoYoutube });
+  // A categoria do YouTube segue o que a live é (regras nas configurações: "Just Chatting" vira People & Blogs); sem regra, a padrão (Gaming).
+  const { youtube } = lerConfig();
+  const escolhida = categoriaDoYoutube({ categoria, titulo, regras: youtube.regras });
+  const categoriaYoutube = forcada.trim() || escolhida.categoria;
+  const regra = Boolean(forcada.trim()) || escolhida.regra;
+  const erro = await executar(acao, { tituloLive: titulo, categoriaLive: categoria, categoriaYoutube, pedido });
+  if (erro) return { plataforma, nivel: 2, categoriaOk: true, texto: `recusou o pedido (${curto(erro, 30)})` };
+  const r = await aguardarLeitura(() => pedirStreamerbot({ request: 'GetGlobal', variable: VARIAVEL_DO_YOUTUBE, persisted: false }), pedido, { limiteMs: 3000, interpretar: respostaDoYoutube });
   if (!r) {
-    return { plataforma, nivel: 1, categoriaOk: true, texto: 'título enviado, mas o YouTube não confirmou: se ele não mudar, cole o código de Painel-YouTube.cs na ação “Painel: YouTube” (ele mostra o motivo aqui e nos logs do Streamer.bot)' };
+    return { plataforma, nivel: 1, categoriaOk: true, texto: 'enviado (sem confirmação)' };
   }
   if (!r.ok && r.semTransmissao) {
-    guardarPendenteDoYoutube({ titulo, categoria });
-    return { plataforma, nivel: 1, categoriaOk: true, semTransmissao: true, texto: 'o YouTube ainda não tem uma transmissão que o Streamer.bot monitore (crie ou agende a live no YouTube Studio): guardei o título e aplico quando a live do YouTube começar' };
+    guardarPendenteDoYoutube({ titulo, categoria, categoriaYoutube: forcada });
+    return { plataforma, nivel: 1, categoriaOk: true, semTransmissao: true, texto: 'sem live aberta (aplico ao abrir)' };
   }
-  if (!r.ok) return { plataforma, nivel: 2, categoriaOk: true, texto: r.erro || 'o YouTube não aceitou a mudança' };
+  if (!r.ok) return { plataforma, nivel: 2, categoriaOk: true, texto: curto(r.erro) || 'não aceitou' };
   guardarPendenteDoYoutube(null);
-  const partes = [titulo ? 'título atualizado' : 'nada para mudar no título'];
-  if (r.categoria) partes.push(`categoria: ${r.categoria}`);
-  if (r.avisos) partes.push(r.avisos);
-  return { plataforma, nivel: r.avisos ? 1 : 0, categoriaOk: true, texto: partes.join(' · ') };
+  // Quando uma regra escolheu a categoria, o resultado diz qual (a padrão não precisa: é a de sempre).
+  return { plataforma, nivel: r.avisos ? 1 : 0, categoriaOk: true, texto: r.avisos ? 'título ok, categoria recusada' : regra && categoriaYoutube ? `atualizado (${curto(categoriaYoutube, 24)})` : 'atualizado' };
 }
 
-// Uma tentativa de mudar título e categoria numa plataforma. Devolve { plataforma, nivel, texto, categoriaFeita, categoriaOk }.
-async function tentarAtualizar(plataforma, acao, titulo, categoria) {
-  const nomeDaAcao = ACAO_DA_LIVE[plataforma];
+// ---- Tags e descrição do YouTube (painel Tags, quando ligado nas configurações) ----
+// A mesma ação `Painel: YouTube` (Painel-YouTube.cs, versão 2): `acao: 'ler'` devolve o que a transmissão tem; sem ela, `tagsAcao` (definir ou limpar) e
+// `descricaoDefinir` mexem só no que foi pedido. O YouTube só muda uma transmissão que existe e que o Streamer.bot monitora: sem ela, o pedido fica guardado e é
+// aplicado quando a live abrir (como o título).
+const pedidoNovo = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+const FALTA_ACAO_DO_YOUTUBE = `falta a ação “${ACAO_DA_LIVE.youtube}” (o nome precisa ser exatamente igual; docs/INSTRUCOES.md, “Criar as ações no Streamer.bot”)`;
+const CODIGO_ANTIGO_DO_YOUTUBE = 'atualize o código da ação Painel: YouTube (Painel-YouTube.cs): o atual não mexe em tags nem em descrição';
+
+// Lê as tags e a descrição que a transmissão do YouTube tem agora. Devolve { ok, tags, descricao, titulo, categoria } ou { ok: false, erro, semTransmissao? }.
+export async function lerInfoDoYoutube() {
+  const acao = achar(ACAO_DA_LIVE.youtube);
+  if (!acao) return { ok: false, erro: FALTA_ACAO_DO_YOUTUBE };
+  const pedido = pedidoNovo();
+  const erro = await executar(acao, { acao: 'ler', pedido });
+  if (erro) return { ok: false, erro: `recusou o pedido (${curto(erro, 30)})` };
+  const r = await aguardarLeitura(() => pedirStreamerbot({ request: 'GetGlobal', variable: VARIAVEL_DO_YOUTUBE, persisted: false }), pedido, { limiteMs: 3000, interpretar: respostaDoYoutube });
+  if (!r) return { ok: false, erro: 'sem resposta da ação (cole o código novo de Painel-YouTube.cs no Streamer.bot)' };
+  if (!r.ok && r.semTransmissao) return { ok: false, semTransmissao: true, erro: 'sem live do YouTube aberta' };
+  if (!r.ok) return { ok: false, erro: curto(r.erro) || 'não aceitou' };
+  if (r.versao < 2) return { ok: false, erro: CODIGO_ANTIGO_DO_YOUTUBE };
+  return { ok: true, tags: r.tags, descricao: r.descricao, titulo: r.titulo, categoria: r.categoria };
+}
+
+// Manda o que mudou (info: { tags, trocarTags, descricao, trocarDescricao }, já limpo). Devolve { plataforma, nivel, texto, semTransmissao? }.
+async function enviarInfoDoYoutube(acao, info) {
+  const plataforma = 'youtube';
+  const args = { pedido: pedidoNovo(), tituloLive: '', categoriaYoutube: '' };
+  if (info.trocarDescricao) { args.descricaoDefinir = 'true'; args.descricaoLive = info.descricao; }
+  if (info.trocarTags) { args.tagsAcao = info.tags.length ? 'definir' : 'limpar'; args.tagsYoutube = info.tags.join('|'); }
+  const erro = await executar(acao, args);
+  if (erro) return { plataforma, nivel: 2, texto: `recusou o pedido (${curto(erro, 30)})` };
+  const r = await aguardarLeitura(() => pedirStreamerbot({ request: 'GetGlobal', variable: VARIAVEL_DO_YOUTUBE, persisted: false }), args.pedido, { limiteMs: 4000, interpretar: respostaDoYoutube });
+  if (!r) return { plataforma, nivel: 1, texto: 'enviado (sem confirmação)' };
+  if (!r.ok && r.semTransmissao) {
+    guardarInfoPendenteDoYoutube(info);
+    return { plataforma, nivel: 1, semTransmissao: true, texto: 'sem live aberta (aplico ao abrir)' };
+  }
+  if (!r.ok) return { plataforma, nivel: 2, texto: curto(r.erro) || 'não aceitou' };
+  if (r.versao < 2) return { plataforma, nivel: 2, texto: CODIGO_ANTIGO_DO_YOUTUBE };
+  guardarInfoPendenteDoYoutube(null);
+  const recusadas = [info.trocarTags && !r.tagsOk && 'tags', info.trocarDescricao && !r.descricaoOk && 'descrição'].filter(Boolean);
+  if (recusadas.length) return { plataforma, nivel: 2, texto: `${recusadas.join(' e ')} recusada${recusadas.length > 1 || recusadas[0] === 'tags' ? 's' : ''}` };
+  if (info.trocarTags && info.tags.length === 0 && !info.trocarDescricao) return { plataforma, nivel: 0, texto: 'tags removidas' };
+  const feitas = [info.trocarTags && 'tags', info.trocarDescricao && 'descrição'].filter(Boolean);
+  const plural = feitas.length > 1 || feitas[0] === 'tags';
+  return { plataforma, nivel: 0, texto: `${feitas.join(' e ')} atualizada${plural ? 's' : ''}` };
+}
+
+// Aplica as tags e a descrição (do que a pessoa escreveu no painel Tags). `trocarTags` e `trocarDescricao` dizem o que mudou de verdade. O texto passa pelas
+// regras do YouTube (sem < nem >, até 500 letras de tags e 5000 de descrição) e o resultado avisa quando foi ajustado.
+export async function aplicarInfoDoYoutube({ tags, trocarTags, descricao, trocarDescricao }) {
+  const acao = achar(ACAO_DA_LIVE.youtube);
+  if (!acao) return { plataforma: 'youtube', nivel: 2, texto: FALTA_ACAO_DO_YOUTUBE };
+  const t = tagsDoYoutube(tags);
+  const d = descricaoDoYoutube(descricao);
+  const r = await enviarInfoDoYoutube(acao, { tags: t.tags, trocarTags, descricao: d.texto, trocarDescricao });
+  const ajustes = [...(trocarTags ? t.ajustes : []), ...(trocarDescricao ? d.ajustes : [])];
+  if (r.nivel < 2 && ajustes.length) return { ...r, nivel: Math.max(r.nivel, 1), texto: `${r.texto} (texto ajustado)`, ajustes };
+  return { ...r, ajustes };
+}
+
+// Corta o motivo que o Streamer.bot manda (pode ser longo) para caber numa linha curta do resultado.
+export const curto = (t, max = 40) => {
+  const s = String(t || '').split('(')[0].trim();
+  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+};
+
+// Uma tentativa de mudar título e categoria numa plataforma. Devolve { plataforma, nivel, texto, categoriaFeita, categoriaOk }. Os textos são curtos
+// de propósito (uma linha no resultado do painel Live).
+async function tentarAtualizar(plataforma, acao, titulo, categoria, categoriaYoutube = '') {
   const querTitulo = Boolean(titulo);
   const querCategoria = Boolean(categoria) && plataforma !== 'youtube';
-  if (plataforma === 'youtube') return atualizarYoutube(acao, titulo, categoria);
+  if (plataforma === 'youtube') return atualizarYoutube(acao, titulo, categoria, categoriaYoutube);
   const confirmacao = aguardarAtualizacao(plataforma);
   const erro = await executar(acao, { tituloLive: titulo, categoriaLive: categoria });
   if (erro) {
-    if (confirmacao) confirmacao.cancelar();
-    return { plataforma, nivel: 2, categoriaOk: false, texto: `o Streamer.bot recusou o pedido (${erro}). Confira se a ação “${nomeDaAcao}” está ativa e se a ${NOME_DA_PLATAFORMA[plataforma]} está conectada nele` };
+    confirmacao.cancelar();
+    return { plataforma, nivel: 2, categoriaOk: false, texto: `recusou o pedido (${curto(erro, 30)})` };
   }
 
   const feito = await confirmacao.promessa;
   if (!feito) {
-    const enviados = [querTitulo && 'título', querCategoria && 'categoria'].filter(Boolean).join(' e ');
-    return { plataforma, nivel: 1, categoriaOk: false, texto: `${enviados} enviado${querTitulo && querCategoria ? 's' : ''}, mas a ${NOME_DA_PLATAFORMA[plataforma]} não confirmou em ${CONFIRMACAO_MS / 1000} s: a categoria pode não existir, o valor já podia estar igual ou a ação do Streamer.bot falhou` };
+    // Nenhum aviso chegou: a Kick nunca confirma e a Twitch pode não avisar se nada mudou. O pedido foi aceito, então vale como feito, só sem
+    // confirmação (amarelo) — e não há por que tentar outra grafia da categoria, que só vale quando a plataforma responde com outra.
+    return { plataforma, nivel: 1, categoriaOk: true, texto: plataforma === 'kick' ? 'alterado (sem confirmação)' : 'enviado (sem confirmação)' };
   }
   // O evento da plataforma às vezes vem sem o título ou a categoria: vazio é "não informado", não "ficou diferente".
   const partes = [];
   let categoriaOk = true;
-  if (querTitulo) {
-    if (!feito.titulo) partes.push({ nivel: 1, texto: 'título enviado (a plataforma não informou o que ficou)' });
-    else if (normalizar(feito.titulo) === normalizar(titulo)) partes.push({ nivel: 0, texto: 'título atualizado' });
-    else partes.push({ nivel: 1, texto: `título ficou “${feito.titulo}” (você pediu “${titulo}”: a plataforma ajustou o texto)` });
+  if (querTitulo && feito.titulo && normalizar(feito.titulo) !== normalizar(titulo)) partes.push({ nivel: 1, texto: 'título ajustado' });
+  if (querCategoria && feito.categoria && normalizar(feito.categoria) !== normalizar(categoria)) {
+    categoriaOk = false;
+    partes.push({ nivel: 1, texto: `categoria ficou “${feito.categoria}”` });
   }
-  if (querCategoria) {
-    if (!feito.categoria) { categoriaOk = false; partes.push({ nivel: 1, texto: 'categoria enviada (a plataforma não informou qual ficou)' }); }
-    else if (normalizar(feito.categoria) === normalizar(categoria)) partes.push({ nivel: 0, texto: `categoria atualizada: ${feito.categoria}` });
-    else { categoriaOk = false; partes.push({ nivel: 1, texto: `categoria ficou “${feito.categoria}” (você pediu “${categoria}”: ela não foi achada e a plataforma escolheu outra)` }); }
-  }
+  if (partes.length === 0) partes.push({ nivel: 0, texto: 'atualizado' });
   return { plataforma, categoriaFeita: feito.categoria, categoriaOk, nivel: Math.max(...partes.map(p => p.nivel)), texto: partes.map(p => p.texto).join(' · ') };
 }
 
-// Atualiza título e categoria numa plataforma. Devolve { plataforma, nivel, texto, categoriaFeita }: nivel 0 = ok, 1 = aviso (ficou
-// diferente do digitado ou sem confirmação), 2 = erro. O texto diz o que aconteceu com cada um dos dois (título e categoria) e, se algo
-// não saiu como pedido, o motivo provável. O YouTube só muda o título, sem < nem > (ele os recusa) e com até 100 caracteres: o que o dock
-// ajusta vai no texto. Na Kick, se a categoria não for aceita, o dock tenta outras grafias (apóstrofo) e lembra a que funcionou.
-export async function atualizarLive(plataforma, titulo, categoria) {
+// Atualiza título e categoria numa plataforma. Devolve { plataforma, nivel, texto, categoriaFeita }: nivel 0 = ok, 1 = aviso (ficou diferente do
+// digitado ou sem confirmação), 2 = erro, sempre com um texto curto. O YouTube só muda o título, sem < nem > (ele os recusa) e com até 100
+// caracteres. Na Kick, se ela responder com outra categoria, o dock tenta outras grafias (apóstrofo) e lembra a que funcionou.
+// `categoriaYoutube` (opcional): a categoria do YouTube de uma predefinição de live; vazia, as regras das configurações decidem.
+export async function atualizarLive(plataforma, titulo, categoria, categoriaYoutube = '') {
   const nomeDaAcao = ACAO_DA_LIVE[plataforma];
   const acao = achar(nomeDaAcao);
-  if (!acao) return { plataforma, nivel: 2, texto: `falta a ação “${nomeDaAcao}” no Streamer.bot (o nome precisa ser exatamente igual; docs/INSTRUCOES.md, “Criar as ações no Streamer.bot”)` };
+  if (!acao) return { plataforma, nivel: 2, texto: `falta a ação “${nomeDaAcao}”` };
 
   let tituloEnviado = titulo;
   let ajustes = [];
@@ -197,7 +287,7 @@ export async function atualizarLive(plataforma, titulo, categoria) {
   const querTitulo = Boolean(tituloEnviado);
   const querCategoria = Boolean(categoria) && plataforma !== 'youtube';
   if (!querTitulo && !querCategoria) {
-    return { plataforma, nivel: 1, texto: plataforma === 'youtube' ? 'nada enviado: preencha o título (o YouTube só muda o título)' : 'nada enviado: preencha o título e/ou a categoria' };
+    return { plataforma, nivel: 1, texto: plataforma === 'youtube' ? 'preencha o título' : 'preencha título ou categoria' };
   }
 
   const nomes = plataforma === 'kick' && querCategoria
@@ -206,18 +296,18 @@ export async function atualizarLive(plataforma, titulo, categoria) {
   let r = null;
   const tentadas = [];
   for (const nome of nomes) {
-    r = await tentarAtualizar(plataforma, acao, tituloEnviado, nome);
+    r = await tentarAtualizar(plataforma, acao, tituloEnviado, nome, categoriaYoutube);
     tentadas.push(nome);
     if (r.categoriaOk || r.nivel === 2) break;
   }
   if (plataforma === 'kick' && querCategoria && r.categoriaOk && tentadas.length > 1) {
     const usado = tentadas[tentadas.length - 1];
     lembrarApelido('kick', categoria, usado);
-    r = { ...r, texto: `${r.texto} (a Kick só aceitou “${usado}”; vou usar essa grafia daqui pra frente)` };
+    r = { ...r, texto: r.nivel === 0 ? `atualizado (grafia “${usado}”)` : `${r.texto} (grafia “${usado}”)` };
   } else if (plataforma === 'kick' && tentadas.length > 1 && !r.categoriaOk && r.nivel < 2) {
-    r = { ...r, texto: `${r.texto} (tentei também: ${tentadas.slice(1).map(n => `“${n}”`).join(', ')})` };
+    r = { ...r, texto: `${r.texto} (tentei outras grafias)` };
   }
-  if (ajustes.length > 0) r = { ...r, nivel: Math.max(r.nivel, 1), texto: `${r.texto} · ajustei o título para o YouTube: ${ajustes.join('; ')}` };
+  if (ajustes.length > 0) r = { ...r, nivel: Math.max(r.nivel, 1), texto: r.nivel === 0 ? 'atualizado (título ajustado)' : `${r.texto} · título ajustado` };
   return r;
 }
 
@@ -225,8 +315,44 @@ export async function atualizarLive(plataforma, titulo, categoria) {
 // aceitou o pedido; ele não diz se a Twitch concordou.
 export async function tirarCategoriaDaTwitch() {
   const acao = achar(ACAO_SEM_CATEGORIA);
-  if (!acao) return `falta a ação “${ACAO_SEM_CATEGORIA}” no Streamer.bot (o nome precisa ser exatamente igual)`;
+  if (!acao) return `falta a ação “${ACAO_SEM_CATEGORIA}”`;
   return executar(acao, {});
+}
+
+// ---- Controles da Twitch (modos do chat e clipe) ----
+
+// Um pedido à ação `Painel: Controles` (acao = modo_chat ou clipe): a ação escreve o resultado numa variável global, junto do `pedido`, e o dock o lê.
+// Devolve { nivel, texto, url? } no formato dos outros resultados; sem resposta em 4 s o pedido vale como enviado, sem confirmação (amarelo).
+async function pedirControle(args) {
+  const acao = achar(ACAO_CONTROLES);
+  if (!acao) return { nivel: 2, texto: `falta a ação “${ACAO_CONTROLES}” (o nome precisa ser exatamente igual; docs/INSTRUCOES.md, “Criar as ações no Streamer.bot”)` };
+  const pedido = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  const erro = await executar(acao, { ...args, pedido });
+  if (erro) return { nivel: 2, texto: `recusou o pedido (${curto(erro, 30)})` };
+  const r = await aguardarLeitura(() => pedirStreamerbot({ request: 'GetGlobal', variable: VARIAVEL_DOS_CONTROLES, persisted: false }), pedido, { limiteMs: 4000, interpretar: respostaDosControles });
+  if (!r) return { nivel: 1, texto: 'enviado (sem confirmação)' };
+  if (!r.ok) return { nivel: 2, texto: curto(r.erro) || 'não aceitou' };
+  return { nivel: 0, texto: 'ok', url: r.url };
+}
+
+// Os modos do chat da Twitch (o Streamer.bot não tem estes controles na Kick nem no YouTube).
+export const MODOS_DO_CHAT = [
+  { id: 'emotes', rotulo: 'Só emotes', dica: 'Só emotes: o chat só aceita emotes' },
+  { id: 'lento', rotulo: 'Modo lento', dica: 'Modo lento: cada pessoa espera alguns segundos entre as mensagens' },
+  { id: 'seguidores', rotulo: 'Só seguidores', dica: 'Só seguidores: só quem segue o canal escreve' },
+  { id: 'inscritos', rotulo: 'Só inscritos', dica: 'Só inscritos: só quem é sub escreve' },
+];
+
+// Liga ou desliga um modo. `segundos` vale para o modo lento (3 a 120) e `minutos` para só seguidores (0 = todos os seguidores).
+export async function definirModoDoChat(modo, ligar, { segundos = 30, minutos = 0 } = {}) {
+  const r = await pedirControle({ acao: 'modo_chat', modo, ligar: ligar ? 'true' : 'false', segundos: String(segundos), minutos: String(minutos) });
+  return r.nivel === 0 ? { ...r, texto: ligar ? 'ligado' : 'desligado' } : r;
+}
+
+// Cria um clipe da live da Twitch (título vazio = o título da live). Devolve { nivel, texto, url? }.
+export async function criarClipe({ titulo = '', duracao = 30 } = {}) {
+  const r = await pedirControle({ acao: 'clipe', titulo, duracao: String(duracao) });
+  return r.nivel === 0 ? { ...r, texto: 'clipe criado' } : r;
 }
 
 // ---- Tags (#) e momentos ----

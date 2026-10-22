@@ -2,11 +2,11 @@
 import { useEffect, useState } from 'react';
 import { observarSaudeDoObs } from './obsSaude.js';
 
-export function useSaudeDoObs(ligado, url, senha) {
+export function useSaudeDoObs(ligado, url, senha, mic = '') {
   const [saude, setSaude] = useState(null);
   useEffect(() => {
     if (!ligado) { setSaude(null); return undefined; }
-    return observarSaudeDoObs({ url, senha }, setSaude);
-  }, [ligado, url, senha]);
+    return observarSaudeDoObs({ url, senha, mic }, setSaude);
+  }, [ligado, url, senha, mic]);
   return saude;
 }

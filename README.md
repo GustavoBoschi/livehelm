@@ -42,7 +42,9 @@ no seu computador: não há servidor, conta, cadastro nem chave de API.
   aparecem em cada aba.
 - **Aviso de anúncio da Twitch:** um pop-up pequeno com a contagem regressiva e o botão **Adiar 5 min**, para o anúncio não pegar
   você no meio de uma cena.
-- **Tags da Twitch que você vê e edita:** o painel lê as tags atuais do canal, e você exclui ou adiciona antes de aplicar.
+- **Tags da Twitch que você vê e edita:** o painel lê as tags atuais do canal, e você exclui ou adiciona antes de aplicar. Com **tags e descrição do YouTube** ligadas nas
+  configurações (desligado por padrão), o mesmo painel ganha um bloco do YouTube: lê, edita e aplica as tags (palavras-chave escondidas) e a **descrição** da live, e guarda o que você
+  escrever para aplicar quando a live abrir.
 - **Título e categoria já preenchidos:** ao conectar, o painel lê o título e a categoria atuais da Twitch (e o título do YouTube, de
   reserva) e põe nos campos. O título aceita **emojis**, com busca em português e inglês.
 - **Saúde da transmissão:** fps, CPU e upload do OBS num aviso em português simples (**Live On** ou o que está dando errado), o tempo de
@@ -50,7 +52,14 @@ no seu computador: não há servidor, conta, cadastro nem chave de API.
 - **Multistream:** botões **Iniciar lives** e **Parar lives** que fazem o mesmo que os do OBS (os destinos do plugin
   obs-multi-rtmp vão junto) e, no parar, esperam o delay da transmissão terminar em vez de cortar tudo.
 - **AutoMod da Twitch:** a mensagem que o AutoMod segurou aparece no chat com **Permitir** e **Negar**.
-- **Marcação de momentos:** um clique anota o tempo da live num arquivo de texto, para você achar os melhores trechos depois.
+- **Marcação de momentos:** um clique anota o tempo da live num arquivo de texto, para você achar os melhores trechos depois. Com o **botão de clipe** ligado
+  (símbolo da Twitch), um clique também cria um clipe da live na Twitch e mostra o link.
+- **Predefinições de live** (desligadas por padrão): guarde um modo (título, categoria, tags da Twitch e, se quiser, a categoria do YouTube) e troque de live
+  com um clique, sem redigitar tudo.
+- **Modos do chat da Twitch** (desligados por padrão): só emotes, modo lento, só seguidores e só inscritos num toque, sem ir ao site da Twitch. O Streamer.bot
+  só tem esses controles na Twitch; a Kick e o YouTube não têm.
+- **Mudo do microfone** (desligado por padrão): uma caixinha sempre visível no alto, ao lado esquerdo da bolinha azul (verde com o microfone aberto, vermelha no mudo), que coloca no mudo (e tira) o microfone que você escolheu nas configurações, pelo
+  OBS, em vez de procurá-lo no mixer.
 - **Instala em dois cliques** (Windows) e **não precisa de nada instalado** além do OBS e do Streamer.bot.
 - **Leve e à prova de erro:** é só uma página; se algo falhar, o OBS continua funcionando.
 - **Gratuito e com código disponível**, em React, com testes e documentação para quem quiser usar, estudar e adaptar.
@@ -105,9 +114,11 @@ Da esquerda para a direita:
   clique liga todas.
 - **Twitch, Kick e YouTube.** Ligar ou desligar vale para atualizar a live e para enviar mensagens. O pontinho verde diz se o
   Streamer.bot está conectado àquela plataforma.
-- O **tempo de live** ao lado do símbolo de cada plataforma (00:00 com a live desligada) e o **total de espectadores** de todas, com
-  o número de cada uma ao passar o mouse. O tempo da Twitch vem da transmissão do OBS e o do YouTube e da Kick, do aviso de início de
-  cada uma ou, na falta dele, dos destinos do multistream que estão no ar.
+- O **tempo de live** ao lado do símbolo de cada plataforma (00:00 com a live desligada) e o **total de espectadores** de todas; ao passar o
+  mouse no total, um cartãozinho mostra o número de cada plataforma. O tempo da Twitch vem da transmissão do OBS e o do YouTube e da Kick, do
+  aviso de início de cada uma ou, na falta dele, dos destinos do multistream que estão no ar. **Quem manda no "no ar" é o OBS** (com o
+  WebSocket dele conectado): quando ele para de transmitir, os três tempos voltam a 00:00 e os espectadores a 0 na hora, sem esperar o aviso de
+  cada plataforma (que a Kick e o YouTube nem sempre mandam). Sem a leitura do OBS, valem os avisos das plataformas.
 - Logo abaixo, a **linha de saúde do OBS** (veja [Saúde do OBS e Multistream](#saúde-do-obs-e-multistream)).
 - A **bolinha azul** abre a lista de painéis, para mostrar ou esconder cada um (a escolha fica salva).
 - A **bolinha de estado**: **verde** (Streamer.bot e todas as plataformas ativas conectados), **amarela** (falta alguma plataforma
@@ -118,7 +129,9 @@ Da esquerda para a direita:
 
 Um campo de título, um de categoria e o botão **Confirmar**, que atualiza todas as plataformas ligadas ao mesmo tempo.
 
-- O resultado aparece **por plataforma**: ✓ quando a plataforma confirmou, e amarelo quando a categoria ou o título ficou
+- Todas as plataformas vão **ao mesmo tempo** e cada resultado aparece assim que chega (em até uns 3 s), numa linha curta num cartão que **flutua**
+  embaixo do painel Live, sem empurrar os painéis de baixo (clique nele para fechar; some sozinho em 10 s; o erro fica). Por exemplo: "atualizado",
+  "alterado (sem confirmação)" (a Kick não confirma, então fica amarelo) ou "sem live aberta (aplico ao abrir)" (YouTube). O resultado aparece **por plataforma**: ✓ quando a plataforma confirmou, e amarelo quando a categoria ou o título ficou
   diferente do digitado ou a plataforma não confirmou (por exemplo, uma categoria que não existe).
 - **+ Salvar categoria** cria um atalho de um clique. As categorias que as plataformas já confirmaram viram sugestões enquanto
   você digita.
@@ -130,7 +143,12 @@ Um campo de título, um de categoria e o botão **Confirmar**, que atualiza toda
   sistema sabe desenhar.
 - **YouTube:** o título é ajustado às regras dele (`->` vira `→`, `<` e `>` saem, até 100 caracteres) e o resultado diz o que mudou.
   Com o código novo da ação `Painel: YouTube`, o painel mostra se o YouTube aceitou ou o motivo de não ter aceitado. A categoria do
-  YouTube é uma da lista fixa dele (por padrão **Gaming**, em Configurações); o jogo não dá para escolher pela API. O YouTube só
+  YouTube é uma da lista fixa dele e **muda sozinha conforme a live**: em Configurações > YouTube, cada linha tem as palavras que identificam um tipo de live
+  (Just Chatting, Software/Tecnologia/Ciência, Música, Esportes...) e a categoria do YouTube, **escolhida numa lista** (nada de digitar o nome). O dock
+  compara a categoria digitada no painel Live (ou, sem ela, o título) com as palavras; qualquer outro nome digitado é um jogo e vai para **Gaming**, sempre
+  (a linha "Qualquer jogo" aceita nomes, como Marvel Rivals e Minecraft, que ganham das outras linhas). O resultado mostra a categoria quando uma regra a escolheu
+  ("atualizado (People & Blogs)"). O jogo em si (o "Título do jogo" do YouTube Studio) **não dá para escolher**: nem a API do YouTube nem o
+  Streamer.bot têm esse campo. O YouTube só
   muda o título de uma **transmissão que existe** (criada ou agendada no YouTube Studio, ou no ar) e que o Streamer.bot monitora: sem ela,
   o dock **guarda o título e o aplica sozinho quando a live do YouTube começar**, e mostra o resultado no painel.
 - **Kick:** se a categoria não for aceita, o dock tenta outras grafias (por exemplo "Baldur's Gate 3" com o apóstrofo) e lembra a que
@@ -182,8 +200,10 @@ Duas coisas separadas, cada uma com o seu interruptor em **Configurações**:
 
 - **Saúde do OBS** (vem ligada; só lê o OBS): uma linha pequena logo abaixo da barra com **fps**, **CPU** e **upload** e, no fim, o
   estado da live: **Live On** (no ar e sem problemas), **Live Off** (nada no ar) ou, em português simples, o que está acontecendo (a
-  internet oscilando, o PC com dificuldade de codificar o vídeo, o OBS travando). Passe o mouse sobre o aviso para ver o que ele quer
-  dizer.
+  internet oscilando, o PC com dificuldade de codificar o vídeo, o OBS travando). O **Live On/Off** fica sempre no mesmo lugar e o aviso aparece
+  **ao lado dele**, em texto curto e numa linha só: a linha nunca cresce, então o chat e os painéis de baixo não se mexem quando a live trava
+  (antes o aviso quebrava em várias linhas e empurrava tudo, parecendo uma mensagem nova). Se faltar espaço o texto corta com "…"; passe o mouse
+  sobre ele para ver o aviso completo e o que ele quer dizer.
 - **Painel de Multistream** (vem **desligado**, porque os botões mexem na live): **Iniciar lives** e **Parar lives**, com confirmação, que
   fazem o mesmo que Iniciar e Parar transmissão do OBS. Os destinos do plugin de multistream seguem junto quando ele está com
   *sincronizar início e fim*. O **Parar lives** não força: com **delay** de transmissão, o OBS termina de enviar o que está no delay antes
@@ -229,7 +249,10 @@ Mensagens e alertas das três plataformas num feed só, com abas **Tudo**, **Twi
   no YouTube), mais o **⋮** com todas as opções. O botão direito abre o mesmo menu: Mencionar, Copiar mensagem, Apagar,
   Silenciar 1 ou 10 minutos, Banir, Fixar e Ver só este usuário.
 - **Enviar mensagens:** a caixa de baixo envia para as plataformas ligadas (ou só para a da aba aberta). Aceita comandos:
-  `/ban nome`, `/timeout nome segundos` (10 min se não disser o tempo) e `/limpar` (só Twitch).
+  `/ban nome`, `/timeout nome segundos` (10 min se não disser o tempo), `/limpar` (limpa o chat da Twitch) e `/limpardock` (esvazia só a lista de
+  mensagens do LiveHelm; não apaga nada nas plataformas).
+- **Texto de resgate sem repetir:** a mensagem em destaque (e a recompensa que pede texto) aparece só como resgate, com o texto; a mensagem igual do
+  chat, que chega junto, não entra de novo.
 - **Busca** (lupa ou `Ctrl+F`): filtra por nome ou texto, sem diferenciar maiúsculas nem acentos. **Ver só este usuário** mostra só as
   mensagens dele, com um chip para soltar. `Esc` ou **Fechar** limpa tudo.
 - **Fixar mensagem:** até 3 ficam num quadro no alto do chat, só na sessão.

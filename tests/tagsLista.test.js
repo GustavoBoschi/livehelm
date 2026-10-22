@@ -121,7 +121,7 @@ import { respostaDoYoutube } from '../src/tagsLista.js';
 
 test('respostaDoYoutube traz o resultado da ação do YouTube só quando o pedido é o esperado', () => {
   const valor = JSON.stringify({ pedido: 'p7', ok: true, erro: '', titulo: 'Live nova', categoria: 'Gaming', avisos: '', semTransmissao: false });
-  assert.deepEqual(respostaDoYoutube({ status: 'ok', variables: { painelYoutube: { value: valor } } }, 'p7'), { ok: true, erro: '', titulo: 'Live nova', categoria: 'Gaming', avisos: '', semTransmissao: false });
+  assert.deepEqual(respostaDoYoutube({ status: 'ok', variables: { painelYoutube: { value: valor } } }, 'p7'), { ok: true, erro: '', titulo: 'Live nova', categoria: 'Gaming', avisos: '', semTransmissao: false, versao: 1, descricao: '', tags: [], descricaoOk: true, tagsOk: true });
   assert.equal(respostaDoYoutube({ status: 'ok', variables: { painelYoutube: { value: valor } } }, 'outro'), null);
   const falha = JSON.stringify({ pedido: 'p8', ok: false, erro: 'nenhuma transmissão monitorada' });
   assert.equal(respostaDoYoutube({ status: 'ok', value: falha }, 'p8').erro, 'nenhuma transmissão monitorada');
@@ -131,4 +131,16 @@ test('respostaDoYoutube traz o aviso de que não havia transmissão para mudar',
   const valor = JSON.stringify({ pedido: 'p9', ok: false, erro: 'nenhuma transmissão', semTransmissao: true });
   assert.equal(respostaDoYoutube({ status: 'ok', value: valor }, 'p9').semTransmissao, true);
   assert.equal(respostaDoYoutube({ status: 'ok', value: JSON.stringify({ pedido: 'p9', ok: true }) }, 'p9').semTransmissao, false);
+});
+
+test('respostaDoYoutube traz a versão do código, a descrição, as tags e o resultado de cada uma', () => {
+  const valor = JSON.stringify({ pedido: 'p20', ok: true, versao: 2, descricao: 'linha 1\nlinha 2', tags: ['rpg', 'marvel rivals'], descricaoOk: false, tagsOk: true });
+  const r = respostaDoYoutube({ status: 'ok', value: valor }, 'p20');
+  assert.equal(r.versao, 2);
+  assert.equal(r.descricao, 'linha 1\nlinha 2');
+  assert.deepEqual(r.tags, ['rpg', 'marvel rivals']);
+  assert.equal(r.descricaoOk, false);
+  assert.equal(r.tagsOk, true);
+  // o código antigo da ação não manda versão: vale 1
+  assert.equal(respostaDoYoutube({ status: 'ok', value: JSON.stringify({ pedido: 'p21', ok: true }) }, 'p21').versao, 1);
 });

@@ -91,8 +91,8 @@ reconhece as que existem. Se alguma faltar, o painel que a usa mostra um aviso a
 
 ### Receita: ação com código C#
 
-As ações `Painel: Tags`, `Painel: Momentos`, `Painel: Chat` e (recomendada) `Painel: YouTube`, e a opcional `Painel: Sem Categoria`,
-usam código pronto que vem neste projeto, na pasta [`acoes-streamerbot/`](../acoes-streamerbot).
+As ações `Painel: Tags`, `Painel: Momentos`, `Painel: Chat` e (recomendada) `Painel: YouTube`, e as opcionais `Painel: Sem Categoria` e
+`Painel: Controles`, usam código pronto que vem neste projeto, na pasta [`acoes-streamerbot/`](../acoes-streamerbot).
 
 1. Crie a ação com a receita acima (passos 1 a 4).
 2. No painel de sub-ações, botão direito, **Core > C# > Execute C# Code**.
@@ -136,15 +136,32 @@ transmissão monitorada). Argumentos que o dock manda:
 |---|---|
 | `tituloLive` | o título, já sem `<` e `>` e com até 100 caracteres (regras do YouTube) |
 | `categoriaYoutube` | uma categoria da lista fixa do YouTube, como `Gaming` (vazia: não mexe) |
+| `acao` | vazia: muda a transmissão; `ler`: só devolve o que ela tem agora (título, categoria, descrição e tags) |
+| `descricaoDefinir` | `true`: troca a descrição por `descricaoLive` (sem `<` e `>`, até 5000 letras; vazia apaga) |
+| `tagsAcao` | `definir`: troca as tags por `tagsYoutube` (separadas por `\|`, até 500 letras no total); `limpar`: tira todas; vazio: não mexe |
 | `pedido` | um identificador, devolvido junto da resposta |
+
+**Tags e descrição (opcional, desligado por padrão):** em **Configurações > YouTube**, ligue **Mostrar tags e descrição do YouTube no painel Tags**. O painel passa a se chamar
+**Tags e descrição** e ganha um bloco **YouTube**: ele lê as tags e a descrição da transmissão, você edita (as tags do YouTube são palavras ou frases soltas, separadas por vírgula,
+e ficam escondidas: ajudam nas buscas) e **Aplicar no YouTube** manda só o que mudou. Sem live do YouTube aberta, o que você escrever fica guardado e é aplicado quando ela abrir.
+Isso usa a versão nova do código (`Painel-YouTube.cs`, versão 2): quem tem o código antigo vê o aviso "atualize o código da ação Painel: YouTube". Não é o "Título do jogo" do YouTube Studio,
+que a API não deixa preencher.
 
 **Sem transmissão não há título para mudar.** O título pertence a uma transmissão do YouTube, e o Streamer.bot só consegue mudar a que ele está
 monitorando (a live criada ou agendada no YouTube Studio, ou no ar, e o YouTube conectado). Se o dock confirmar o título sem nenhuma transmissão
 monitorada, ele mostra o aviso, **guarda o título e o aplica sozinho quando a live do YouTube começar** (o resultado aparece no painel Live). Se
 quiser mudar antes, crie ou agende a live no YouTube Studio e confira em *Platforms > YouTube* do Streamer.bot se ela aparece.
 
-O jogo (por exemplo, "Marvel Rivals") **não dá para escolher pela API do YouTube**: ela só aceita as categorias fixas. Se o YouTube recusar o
-nome da categoria, o dock avisa e o título continua valendo.
+O jogo (por exemplo, "Marvel Rivals") **não dá para escolher pela API do YouTube nem pelo Streamer.bot**: o "Título do jogo" do YouTube Studio não tem
+campo nenhum nelas (a API só tem a categoria fixa, como Gaming), então ele continua sendo escolhido à mão no Studio. O que o dock faz é **trocar a categoria
+conforme a live**: em **Configurações > YouTube**, "Trocar a categoria conforme a live" tem uma linha por tipo de live, cada uma com as **palavras** que o
+identificam (separadas por vírgula) e a **categoria do YouTube, escolhida numa lista** (você não digita o nome). De fábrica: Just Chatting, Conversando, Bate-papo = People &
+Blogs; qualquer jogo = Gaming; Software, Tecnologia, Technology, Ciência, Science = Science & Technology; Music, Música = Music; Sports, Esportes = Sports. Se a categoria
+digitada no painel Live tem uma dessas palavras (sem diferenciar maiúsculas, acentos nem plural, e só como palavra inteira), o YouTube recebe a categoria da linha; sem
+categoria digitada, vale a linha cujas palavras aparecem no título. Qualquer outro nome digitado é um jogo e **vai para a categoria da linha "Qualquer jogo"** (Gaming), então a live
+nunca fica com a categoria da anterior. Para um jogo que tenha uma dessas palavras no nome (por exemplo, "Music Rush"), escreva o nome na linha "Qualquer jogo": os nomes dela
+ganham das outras linhas. **+ Nova regra** acrescenta uma linha e **Voltar ao padrão** devolve as de fábrica. Quando uma regra escolhe a categoria, o resultado do painel Live a mostra, como em
+"atualizado (People & Blogs)". Se o YouTube recusar o nome da categoria, o dock avisa e o título continua valendo.
 
 **Sem código (o jeito antigo, ainda funciona, mas sem confirmação):**
 
@@ -243,6 +260,24 @@ O aviso de anúncio (a Twitch avisa uma vez por minuto nos 5 minutos antes), o h
 moderação (banido, silenciado e chat limpo) aparecem só na aba **Alertas**. As abas **Twitch**, **Kick** e **YouTube** mostram o mesmo
 que a **Tudo**, só daquela plataforma. Você muda isso em **Configurações > Alertas no chat** ([seção 6](#6-configurar-o-dock)).
 
+### `Painel: Controles`: modos do chat e clipe da Twitch (opcional)
+
+Só é preciso se você ligar os **Modos do chat** ou o **botão de clipe** em Configurações. Receita de **ação com código C#**, colando o conteúdo de
+[`acoes-streamerbot/Painel-Controles.cs`](../acoes-streamerbot/Painel-Controles.cs). Ela grava o resultado numa variável global (`painelControles`) e o dock o
+mostra (o modo ligado ou desligado, ou o link do clipe). Argumentos que o dock manda:
+
+| Argumento | O que é |
+|---|---|
+| `acao` | `modo_chat` ou `clipe` |
+| `modo` | (modo_chat) `emotes`, `lento`, `seguidores` ou `inscritos` |
+| `ligar` | (modo_chat) `true` liga o modo, `false` desliga |
+| `segundos` | (modo lento) tempo entre as mensagens, de 3 a 120 |
+| `minutos` | (só seguidores) há quanto tempo segue, de 0 (todos) a 129600 |
+| `titulo` | (clipe) título do clipe; vazio, o título da live |
+| `duracao` | (clipe) de 5 a 60 segundos |
+
+Existe **só para a Twitch**: o Streamer.bot 1.0.7 não tem modo do chat nem clipe na Kick e no YouTube. O clipe só sai com a live **no ar na Twitch**.
+
 ### `Painel: Anuncio`: adiar o anúncio da Twitch (opcional)
 
 Receita de **ação sem código**. O nome é **sem acento**, exatamente `Painel: Anuncio`.
@@ -329,16 +364,21 @@ Clique na **bolinha de estado** (a verde, amarela ou vermelha, no canto de cima)
 | **Streamer.bot** | **Endereço** (`ws://127.0.0.1:8080`) e **Senha** (a do passo 2.3, ou vazia). Clique em **Salvar e reconectar** |
 | **OBS** | **Endereço** (`ws://127.0.0.1:4455`) e **Senha** (a do passo 4, ou vazia). **Salvar e testar** mostra o tempo atual da live |
 | **Marcação de momentos** | **Dar título a cada clipe** e a **pasta** dos arquivos (vazia: a pasta `Clipes` ao lado do dock, ou seja, `%LOCALAPPDATA%\LiveHelm\Clipes` no dock instalado; se escolher outra, use o caminho completo, como `C:\Clipes`) |
-| **Alertas no chat** | Marque os tipos de alerta que também devem aparecer na aba **Tudo** e nas abas de cada plataforma (seguidor, sub, resgate de pontos, anúncio, banimento...). A aba **Alertas** mostra todos, sempre. **Voltar ao padrão** desfaz as suas escolhas |
+| **Alertas no chat** | A seção **vem recolhida** (clique no título para abrir e fechar; recolhida, mostra quantos alertas aparecem na aba **Tudo**). Marque os tipos de alerta que também devem aparecer na aba **Tudo** e nas abas de cada plataforma (seguidor, sub, resgate de pontos, anúncio, banimento...). A aba **Alertas** mostra todos, sempre. **Voltar ao padrão** desfaz as suas escolhas |
 | **Saúde do OBS** | **Mostrar fps, CPU e rede do OBS no alto** (vem ligado, só lê o OBS). Também aparece na lista das bolinhas azuis. Usa a conexão com o OBS da seção acima |
+| **YouTube** | As **regras da categoria** (veja acima) e **Mostrar tags e descrição do YouTube no painel Tags** (vem desligado) |
 | **Painel de Multistream** | **Usar o Painel de Multistream** (vem desligado: os botões mexem na live, então quem os quer liga aqui). Põe o painel Multistream, com **Iniciar lives** e **Parar lives**, na lista das bolinhas azuis para mostrar ou esconder. É independente da Saúde do OBS |
+| **Predefinições de live** | **Usar predefinições de live** (vem desligado). Põe o painel **Predefinições**, em que você guarda um modo (título e categoria do painel Live, as tags da Twitch e, se quiser, a categoria do YouTube) e o aplica com um clique: ele muda título e categoria nas plataformas ativas e as tags da Twitch. Guardar com o mesmo nome atualiza |
+| **Modos do chat (Twitch)** | **Usar os modos do chat** (vem desligado): painel com **Só emotes**, **Modo lento**, **Só seguidores** e **Só inscritos**, num toque, e o tempo do modo lento e de seguidores. Só na Twitch. Precisa da ação `Painel: Controles` |
+| **Clipe da Twitch** | **Mostrar o botão de clipe no painel Momentos** (vem desligado), com a duração (15 a 60 s). O botão leva o símbolo da Twitch, cria o clipe e mostra o link para copiar. Precisa da ação `Painel: Controles` |
+| **Mudo do microfone** | **Mostrar o botão de mudo do microfone** (vem desligado) e a **entrada do microfone no OBS** (use **Listar as entradas do OBS** e escolha a sua). A caixinha aparece sempre no alto, ao lado esquerdo da bolinha azul: verde com o microfone aberto, vermelha no mudo, cinza se o OBS não está conectado. Usa a conexão com o OBS |
 | **Aviso de anúncio (Twitch)** | **Avisar antes de cada anúncio** (vem desligado) e com quantos segundos de antecedência (15, 30, 45 ou 60). **Testar o aviso** mostra o pop-up de mentira, sem falar com a Twitch |
 
 No alto do dock, ao lado do símbolo de cada plataforma, fica o **tempo de live dela** (00:00 com a live desligada) e, junto das plataformas, o **total de espectadores** de todas. O tempo da **Twitch** é o da transmissão principal do OBS (o botão nativo Iniciar transmissão) e, de reserva, o aviso de início da Twitch e o tempo dos destinos do multistream. O de YouTube e Kick é o aviso de início de cada uma e, de reserva, o tempo dos destinos do multistream.
 
 **Como montar:** deixe a **Twitch** como a transmissão do próprio OBS (Configurações > Transmissão) e ponha só **YouTube e Kick** no plugin de multistream, com *sincronizar início e fim* ligado. Assim o botão do OBS inicia os três e o OBS mostra o tempo e a rede da Twitch. Não repita a Twitch no plugin: duas conexões com a mesma chave derrubam uma à outra.
 
-Logo abaixo dos botões de plataforma fica a **linha de saúde do OBS**, em letra pequena: **fps**, **CPU** e **upload**, e, no fim, o estado da live: **Live On** (no ar e sem problemas), **Live Off** (nada no ar) ou, em português simples, o que está acontecendo (a internet oscilando, o PC com dificuldade de codificar o vídeo, o OBS travando). Passe o mouse sobre o aviso para ver o que ele quer dizer. O painel **Multistream**, logo abaixo do chat, tem só os botões **Iniciar lives** e **Parar lives**, que fazem o mesmo que Iniciar e Parar transmissão do OBS (os destinos do plugin de multistream acompanham quando ele está com *sincronizar início e fim*) e pedem confirmação. **Parar lives** faz como o botão do OBS, sem forçar: se você usa **delay** de transmissão, o OBS termina de enviar o que está no delay antes de fechar a conexão, e o painel mostra "Parando… o OBS espera o delay terminar" até tudo fechar. **Não há botões separados por plataforma** (iniciar ou parar só a Kick, por exemplo): o plugin de multistream chama todos os destinos de "multi-output" e o OBS não deixa escolher um por fora; para isso use a janela do plugin. O dock não consegue abrir o painel do plugin de multistream, porque o OBS não permite; se ele estiver fechado, abra pelo menu **Painéis > Múltiplas saídas** do OBS.
+Logo abaixo dos botões de plataforma fica a **linha de saúde do OBS**, em letra pequena: **fps**, **CPU** e **upload**, e, no fim, o estado da live: **Live On** (no ar e sem problemas), **Live Off** (nada no ar) ou, em português simples, o que está acontecendo (a internet oscilando, o PC com dificuldade de codificar o vídeo, o OBS travando). O **Live On/Off** fica fixo e o aviso aparece **ao lado dele**, em texto curto e numa linha só (a linha não muda de altura, então o chat e os painéis de baixo não se mexem quando a live trava); se faltar espaço o texto corta com "…". Passe o mouse sobre ele para ver o aviso completo e o que ele quer dizer. O painel **Multistream**, logo abaixo do chat, tem só os botões **Iniciar lives** e **Parar lives**, que fazem o mesmo que Iniciar e Parar transmissão do OBS (os destinos do plugin de multistream acompanham quando ele está com *sincronizar início e fim*) e pedem confirmação. **Parar lives** faz como o botão do OBS, sem forçar: se você usa **delay** de transmissão, o OBS termina de enviar o que está no delay antes de fechar a conexão, e o painel mostra "Parando… o OBS espera o delay terminar" até tudo fechar. **Não há botões separados por plataforma** (iniciar ou parar só a Kick, por exemplo): o plugin de multistream chama todos os destinos de "multi-output" e o OBS não deixa escolher um por fora; para isso use a janela do plugin. O dock não consegue abrir o painel do plugin de multistream, porque o OBS não permite; se ele estiver fechado, abra pelo menu **Painéis > Múltiplas saídas** do OBS.
 
 Nos **subs de presente**, o alerta (no chat do dock e no overlay) diz quem presenteou e **para quem foi**; quando é um presente em massa mostra a quantidade e os primeiros nomes ("Para Ana, Beto, Caio e mais 2").
 

@@ -4,7 +4,7 @@
 // abre a lista de painéis para mostrar ou esconder cada um. A bolinha de estado abre as configurações (tema, conexões e
 // marcação de momentos). A conexão com o Streamer.bot é a de streamerbot.js (endereço e senha das configurações ou de config.js;
 // ?streamerbot= e ?sbsenha= na URL valem no lugar).
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { assinarStreamerbot } from './streamerbot.js';
 import { PLATAFORMAS } from './plataformas.js';
 import { carregarAcoes, lerConectadas, notificarAtualizacao, youtubeComecou, NOME_DA_PLATAFORMA, PLATAFORMAS_DO_DOCK } from './acoes.js';
@@ -18,17 +18,22 @@ import Momentos from './Momentos.jsx';
 import Configuracoes from './Configuracoes.jsx';
 import AvisoAnuncio from './AvisoAnuncio.jsx';
 import PainelMultistream from './PainelMultistream.jsx';
+import Predefinicoes from './Predefinicoes.jsx';
+import ModosDoChat from './ModosDoChat.jsx';
+import BotaoMic from './BotaoMic.jsx';
 import SaudeDoObs from './SaudeDoObs.jsx';
 import TempoDeLive from './TempoDeLive.jsx';
 import { useSaudeDoObs } from './useSaudeDoObs.js';
 import { lerConfig } from './configuracoes.js';
-import { estadoInicialDasLives, aplicarEventoDeLive, totalDeEspectadores, estaNoAr } from './lives.js';
+import { estadoInicialDasLives, aplicarEventoDeLive, totalDeEspectadores, estaNoAr, estadoDoObs } from './lives.js';
 
 const ATUALIZACAO_MS = 15000; // de quanto em quanto tempo relê as ações e as plataformas conectadas
 const PAINEIS = [
+  { id: 'predefinicoes', nome: 'Predefinições', dica: 'Predefinições de live: título, categoria e tags num clique' },
   { id: 'live', nome: 'Live', dica: 'Título e categoria' },
-  { id: 'tags', nome: 'Tags da Twitch', dica: 'Tags (#) da live, só na Twitch' },
+  { id: 'tags', nome: 'Tags e descrição', dica: 'Tags (#) da Twitch e, se ligado nas configurações, tags e descrição do YouTube' },
   { id: 'momentos', nome: 'Momentos', dica: 'Marcação de momentos da live' },
+  { id: 'modos', nome: 'Modos do chat', dica: 'Só emotes, modo lento, só seguidores e só inscritos (Twitch)' },
   { id: 'inter', nome: 'Enquetes e previsões', dica: 'Enquetes e previsões da Twitch' },
   { id: 'chat', nome: 'Chat', dica: 'Chat e moderação' },
   { id: 'saude', nome: 'Saúde do OBS', dica: 'fps, CPU e rede do OBS e o estado da live' },
@@ -42,9 +47,11 @@ export default function App() {
   const [nomesDeAcoes, setNomesDeAcoes] = useState(null); // null = ainda não carregou
   const [ativas, setAtivas] = useState(() => ({ twitch: true, kick: true, youtube: true, ...ler('ativas', {}) }));
   const config = lerConfig(); // relida a cada desenho: ao voltar das configurações já vale o que foi mudado
-  const saude = useSaudeDoObs(config.saude.ligada || config.multistream.ligado, config.obs.url, config.obs.senha); // a leitura do OBS vale pra linha de saúde, pros botões e pro tempo
+  const micAtivo = config.mic.ligado && Boolean(config.mic.entrada.trim());
+  const saude = useSaudeDoObs(config.saude.ligada || config.multistream.ligado || micAtivo, config.obs.url, config.obs.senha, micAtivo ? config.mic.entrada.trim() : ''); // a leitura do OBS vale pra linha de saúde, pros botões e pro tempo
   const [lives, setLives] = useState(estadoInicialDasLives); // espectadores e início da live de cada plataforma (lives.js)
   const [agora, setAgora] = useState(Date.now());
+  const estadoObsAnterior = useRef(null);
 
   useEffect(() => assinarStreamerbot(ev => {
     if (ev.tipo === 'conexao') {
@@ -81,8 +88,16 @@ export default function App() {
     return () => { vivo = false; clearInterval(intervalo); };
   }, [conectado]);
 
+  // Quando o OBS começa ou para de transmitir, o estado das plataformas recomeça do zero: assim um início de live antigo não aparece na próxima.
+  const obsAgora = estadoDoObs(saude);
+  useEffect(() => {
+    if (obsAgora === 'desconhecida') return;
+    if (estadoObsAnterior.current !== null && estadoObsAnterior.current !== obsAgora) setLives(estadoInicialDasLives());
+    estadoObsAnterior.current = obsAgora;
+  }, [obsAgora]);
+
   const [menuPaineis, setMenuPaineis] = useState(false);
-  const [paineis, setPaineis] = useState(() => ({ live: true, tags: true, momentos: true, inter: false, chat: true, saude: true, multistream: true, ...ler('paineis', {}) }));
+  const [paineis, setPaineis] = useState(() => ({ predefinicoes: true, live: true, tags: true, momentos: true, modos: true, inter: false, chat: true, saude: true, multistream: true, ...ler('paineis', {}) }));
   const [configAberta, setConfigAberta] = useState(false);
 
   function alternarPainel(id) {
@@ -123,9 +138,12 @@ export default function App() {
     ? `Streamer.bot ${recusa ? `recusou a conexão (${recusa})` : 'desconectado'}`
     : faltando.length > 0 ? `Streamer.bot conectado · sem conexão: ${faltando.map(id => NOME_DA_PLATAFORMA[id]).join(', ')}` : 'Streamer.bot e plataformas conectados';
 
-  const espectadores = totalDeEspectadores(lives, agora);
-  const porPlataforma = PLATAFORMAS_DO_DOCK.filter(id => espectadores.porPlataforma[id] !== undefined).map(id => `${NOME_DA_PLATAFORMA[id]} ${espectadores.porPlataforma[id]}`);
-  const dicaDosEspectadores = porPlataforma.length ? `Espectadores agora, somando todas as plataformas: ${porPlataforma.join(' · ')}` : 'Espectadores agora, somando todas as plataformas (nenhuma informou ainda)';
+  // O OBS manda no "no ar": com a leitura dele parada, nenhuma plataforma conta tempo nem espectadores, mesmo que o último aviso dela seja recente
+  // (a Kick e o YouTube nem sempre avisam o fim). Sem leitura do OBS, vale o que as plataformas avisaram.
+  const estadoObs = estadoDoObs(saude);
+  const obsParado = estadoObs === 'parada';
+  const espectadores = obsParado ? { total: null, porPlataforma: {} } : totalDeEspectadores(lives, agora);
+  const linhasDeEspectadores = PLATAFORMAS_DO_DOCK.filter(id => espectadores.porPlataforma[id] !== undefined);
   // O tempo de cada plataforma. A Twitch sai pelo botão nativo do OBS: vale o início da transmissão principal e, de reserva, o que a própria
   // Twitch informou e o tempo dos destinos do multistream. YouTube e Kick (destinos do multistream): o início que informam e, de reserva, o dos
   // destinos e o da principal (todos começam juntos).
@@ -134,7 +152,7 @@ export default function App() {
   const inicioDestinosMs = obsLigado && saude.msDestinos > 0 ? saude.lidoEm - saude.msDestinos : null;
   // O YouTube e a Kick só avisam no começo e a cada mudança: quem abriu o dock com a live já no ar pode não receber aviso nenhum, então os
   // destinos do multistream que estão no ar no OBS também valem como "no ar".
-  const tempoDaPlataforma = id => (id === 'twitch'
+  const tempoDaPlataforma = id => (obsParado ? { noAr: false, inicioMs: null } : id === 'twitch'
     ? { noAr: Boolean(inicioPrincipalMs) || estaNoAr(lives.twitch, agora), inicioMs: inicioPrincipalMs || lives.twitch.inicioMs || inicioDestinosMs }
     : { noAr: estaNoAr(lives[id], agora) || Boolean(inicioDestinosMs), inicioMs: lives[id].inicioMs || inicioDestinosMs || inicioPrincipalMs });
 
@@ -144,7 +162,7 @@ export default function App() {
 
   return (
     <div id="dock">
-      <header className="barra">
+      <header className={`barra${micAtivo ? ' barra-com-mic' : ''}`}>
         <button type="button" id="plataformas-todas" className={`global${todasAtivas ? ' global-ligado' : ''}`} aria-pressed={todasAtivas}
                 title={todasAtivas ? 'Desativar todas as plataformas' : 'Ativar todas as plataformas'} onClick={alternarTodas}>
           <D20Ambar aceso={todasAtivas} largura={19} />
@@ -165,18 +183,27 @@ export default function App() {
             );
           })}
         </div>
-        {(
-          <span className="espectadores" id="espectadores-total" title={dicaDosEspectadores}>
-            👁 {espectadores.total ?? 0}
-          </span>
-        )}
+        <span className="espectadores" id="espectadores-total" tabIndex={0}>
+          👁 {espectadores.total ?? 0}
+          {linhasDeEspectadores.length > 0 && (
+            <span className="espectadores-detalhe" id="espectadores-detalhe">
+              {linhasDeEspectadores.map(id => (
+                <span key={id} className="espectadores-linha" style={{ '--cor-plataforma': PLATAFORMAS[id].cor }}>
+                  <IconePlataforma id={id} tamanho={14} />{espectadores.porPlataforma[id]}
+                </span>
+              ))}
+            </span>
+          )}
+        </span>
+        {micAtivo && <BotaoMic saude={saude} obs={config.obs} entrada={config.mic.entrada.trim()} />}
         <button type="button" id="paineis-botao" className="bolinha-paineis" aria-expanded={menuPaineis} title="Painéis: mostrar ou esconder" aria-label="Painéis"
                 onClick={e => { e.stopPropagation(); setMenuPaineis(a => !a); }} />
         <button type="button" className={`estado estado-${estado}`} id="estado-conexao" title={`${dicaDoEstado} · clique para abrir as configurações`} aria-label="Configurações"
                 aria-pressed={configAberta} onClick={() => { setMenuPaineis(false); setConfigAberta(a => !a); }} />
         {menuPaineis && (
           <div className="menu-paineis" id="menu-paineis" role="menu" onClick={e => e.stopPropagation()}>
-            {PAINEIS.filter(p => (p.id !== 'multistream' || config.multistream.ligado) && (p.id !== 'saude' || config.saude.ligada)).map(p => (
+            {PAINEIS.filter(p => (p.id !== 'multistream' || config.multistream.ligado) && (p.id !== 'saude' || config.saude.ligada)
+              && (p.id !== 'predefinicoes' || config.presets.ligado) && (p.id !== 'modos' || config.modosDoChat.ligado)).map(p => (
               <label key={p.id} className="painel-opcao" title={p.dica}>
                 <input type="checkbox" id={`painel-chave-${p.id}`} checked={!!paineis[p.id]} onChange={() => alternarPainel(p.id)} />
                 {p.nome}
@@ -190,9 +217,11 @@ export default function App() {
       <AvisoAnuncio nomesDeAcoes={nomesDeAcoes} />
       {configAberta ? <Configuracoes conectado={conectado} recusa={recusa} onVoltar={() => setConfigAberta(false)} /> : (
         <>
+          {config.presets.ligado && paineis.predefinicoes && <Predefinicoes ativas={ativas} conectado={conectado} nomesDeAcoes={nomesDeAcoes} />}
           {paineis.live && <LivePanel ativas={ativas} conectado={conectado} nomesDeAcoes={nomesDeAcoes} />}
           {paineis.tags && <Tags ativas={ativas} conectado={conectado} nomesDeAcoes={nomesDeAcoes} />}
-          {paineis.momentos && <Momentos conectado={conectado} nomesDeAcoes={nomesDeAcoes} />}
+          {paineis.momentos && <Momentos conectado={conectado} nomesDeAcoes={nomesDeAcoes} ativas={ativas} />}
+          {config.modosDoChat.ligado && paineis.modos && <ModosDoChat ativas={ativas} conectado={conectado} nomesDeAcoes={nomesDeAcoes} />}
           {paineis.inter && <Interacoes ativas={ativas} conectado={conectado} />}
         </>
       )}

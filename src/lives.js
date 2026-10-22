@@ -28,6 +28,14 @@ export function aplicarEventoDeLive(estado, ev, agora = Date.now()) {
 // A plataforma está no ar: o último aviso (espectadores ou início) é recente.
 export const estaNoAr = (lv, agora = Date.now()) => lv.aoVivo && agora - lv.quandoMs <= IDADE_MAXIMA_MS;
 
+// O que o OBS diz da transmissão: 'no-ar' (a principal ou algum destino do multistream), 'parada' ou 'desconhecida' (sem leitura do OBS). O OBS
+// é quem sabe quando a live acabou: as plataformas nem sempre avisam (a Kick e o YouTube às vezes não, e cada uma no seu tempo), então uma leitura
+// 'parada' vale mais que o último aviso delas.
+export function estadoDoObs(saude) {
+  if (!saude || !saude.conectado) return 'desconhecida';
+  return saude.ativo || saude.principalAtiva ? 'no-ar' : 'parada';
+}
+
 // Soma dos espectadores das plataformas no ar, e o que cada uma tem. `total` é null enquanto nenhuma informou.
 export function totalDeEspectadores(estado, agora = Date.now()) {
   const porPlataforma = {};
@@ -82,24 +90,24 @@ export function qualidadeDeQuadros(antes, depois) {
 export function problemasDaTransmissao({ congestao, reconectando, renderPct, encoderPct, fps, msPorQuadro }) {
   const p = [];
   if (reconectando) {
-    p.push({ nivel: 'ruim', texto: 'Reconectando com a plataforma…', dica: 'A conexão com a plataforma caiu e o OBS está tentando voltar. Enquanto isso, quem assiste vê a live parada ou cortada.' });
+    p.push({ nivel: 'ruim', texto: 'Reconectando com a plataforma…', curto: 'reconectando…', dica: 'A conexão com a plataforma caiu e o OBS está tentando voltar. Enquanto isso, quem assiste vê a live parada ou cortada.' });
   } else if (congestao >= 0.3) {
-    p.push({ nivel: 'ruim', texto: 'A internet está ruim e a live pode estar falhando', dica: 'O OBS não consegue enviar o vídeo na velocidade em que ele é gerado e está descartando quadros. Quem assiste vê travadas e pulos, mesmo que o seu PC esteja bem.' });
+    p.push({ nivel: 'ruim', texto: 'A internet está ruim e a live pode estar falhando', curto: 'internet ruim', dica: 'O OBS não consegue enviar o vídeo na velocidade em que ele é gerado e está descartando quadros. Quem assiste vê travadas e pulos, mesmo que o seu PC esteja bem.' });
   } else if (congestao >= 0.05) {
-    p.push({ nivel: 'atencao', texto: 'A internet está oscilando um pouco', dica: 'O envio está um pouco atrasado em relação ao vídeo. Pode aparecer algum engasgo para quem assiste, mas ainda não é grave.' });
+    p.push({ nivel: 'atencao', texto: 'A internet está oscilando um pouco', curto: 'internet oscilando', dica: 'O envio está um pouco atrasado em relação ao vídeo. Pode aparecer algum engasgo para quem assiste, mas ainda não é grave.' });
   }
   if (encoderPct >= 3) {
-    p.push({ nivel: 'ruim', texto: 'O PC não está dando conta de codificar o vídeo', dica: 'A placa de vídeo ou o processador não está conseguindo codificar todos os quadros, e eles estão sendo pulados. A live trava para quem assiste mesmo com internet boa.' });
+    p.push({ nivel: 'ruim', texto: 'O PC não está dando conta de codificar o vídeo', curto: 'PC não codifica', dica: 'A placa de vídeo ou o processador não está conseguindo codificar todos os quadros, e eles estão sendo pulados. A live trava para quem assiste mesmo com internet boa.' });
   } else if (encoderPct >= 0.5) {
-    p.push({ nivel: 'atencao', texto: 'O PC teve dificuldade de codificar o vídeo', dica: 'Alguns quadros deixaram de ser codificados nos últimos segundos. Foi rápido, mas vale ficar de olho.' });
+    p.push({ nivel: 'atencao', texto: 'O PC teve dificuldade de codificar o vídeo', curto: 'PC engasgou ao codificar', dica: 'Alguns quadros deixaram de ser codificados nos últimos segundos. Foi rápido, mas vale ficar de olho.' });
   }
   if (renderPct >= 3) {
-    p.push({ nivel: 'ruim', texto: 'O OBS está travando: o PC está sobrecarregado', dica: 'O OBS não consegue desenhar todos os quadros (jogo pesado, capturas demais, placa de vídeo no limite). O vídeo da live e da gravação fica travando.' });
+    p.push({ nivel: 'ruim', texto: 'O OBS está travando: o PC está sobrecarregado', curto: 'OBS travando', dica: 'O OBS não consegue desenhar todos os quadros (jogo pesado, capturas demais, placa de vídeo no limite). O vídeo da live e da gravação fica travando.' });
   } else if (renderPct >= 0.5) {
-    p.push({ nivel: 'atencao', texto: 'O OBS deu uma engasgada', dica: 'O OBS pulou alguns quadros nos últimos segundos: uma travadinha rápida no vídeo, como quando o jogo pesa por um instante.' });
+    p.push({ nivel: 'atencao', texto: 'O OBS deu uma engasgada', curto: 'OBS engasgou', dica: 'O OBS pulou alguns quadros nos últimos segundos: uma travadinha rápida no vídeo, como quando o jogo pesa por um instante.' });
   }
   if (fps && msPorQuadro && msPorQuadro > (1000 / fps) * 0.9) {
-    p.push({ nivel: 'atencao', texto: 'O OBS está no limite para desenhar cada quadro', dica: 'Cada quadro está levando quase todo o tempo que o OBS tem para desenhá-lo. Qualquer pico a mais vai causar quadros pulados.' });
+    p.push({ nivel: 'atencao', texto: 'O OBS está no limite para desenhar cada quadro', curto: 'OBS no limite', dica: 'Cada quadro está levando quase todo o tempo que o OBS tem para desenhá-lo. Qualquer pico a mais vai causar quadros pulados.' });
   }
   return p.sort((a, b) => (a.nivel === b.nivel ? 0 : a.nivel === 'ruim' ? -1 : 1));
 }

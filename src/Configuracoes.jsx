@@ -5,6 +5,9 @@ import { useState } from 'react';
 import { ACENTOS, FUNDOS, aplicarTema, gravarSecao, lerConfig, pastaPadraoDosClipes } from './configuracoes.js';
 import { reconectarStreamerbot } from './streamerbot.js';
 import { tempoDoOBS, formatarTempo } from './obs.js';
+import { listarEntradasDoObs } from './obsSaude.js';
+import { ler, gravar } from './armazenamento.js';
+import { CATEGORIAS_DO_YOUTUBE, REGRAS_PADRAO_DO_YOUTUBE } from './titulos.js';
 import { testarAvisoDeAnuncio } from './AvisoAnuncio.jsx';
 import { NOME_DA_ACAO_DE_ANUNCIO, canalLido } from './acoes.js';
 import { ALERTAS_NO_CHAT_GERAL, TIPOS_DE_ALERTA, apareceNoChatGeral } from './alertas.js';
@@ -15,6 +18,10 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
   const [obs, setObs] = useState(config.obs);
   const [testeObs, setTesteObs] = useState(null); // { nivel, texto }
   const [testando, setTestando] = useState(false);
+  const [entradas, setEntradas] = useState(null);    // as entradas do OBS listadas para escolher o microfone ({ nome, tipo }); null = ainda não listadas
+  const [listando, setListando] = useState(false);
+  const [erroEntradas, setErroEntradas] = useState('');
+  const [alertasAbertos, setAlertasAbertos] = useState(() => ler('configAlertasAberto', false)); // a lista de alertas é comprida: vem recolhida
   const padraoDaPasta = pastaPadraoDosClipes();
   const canal = canalLido();
   const semPontosDeCanal = canal && canal.afiliado === false && canal.parceiro === false; // sem afiliação não existem resgates de pontos do canal
@@ -54,11 +61,36 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
     gravarSecao('youtube', youtube);
     setConfig({ ...config, youtube });
   }
+  // As regras da categoria do YouTube: cada linha tem as palavras que a identificam e a categoria, escolhida numa lista (nunca digitada).
+  const mudarRegra = (i, parte) => mudarYoutube({ regras: config.youtube.regras.map((r, j) => (j === i ? { ...r, ...parte } : r)) });
+  const apagarRegra = i => mudarYoutube({ regras: config.youtube.regras.filter((_, j) => j !== i) });
+  const novaRegra = () => mudarYoutube({ regras: [...config.youtube.regras, { palavras: '', categoria: 'Entertainment' }] });
+  const regrasDeFabrica = () => mudarYoutube({ regras: REGRAS_PADRAO_DO_YOUTUBE.map(r => ({ ...r })) });
   function mudarSaude(parte) {
     const saude = { ...config.saude, ...parte };
     gravarSecao('saude', saude);
     setConfig({ ...config, saude });
   }
+  // Painéis e botões novos (predefinições, modos do chat, clipe e microfone): cada um tem a sua seção e vem desligado.
+  function mudarSecao(secao, parte) {
+    const valores = { ...config[secao], ...parte };
+    gravarSecao(secao, valores);
+    setConfig({ ...config, [secao]: valores });
+  }
+  async function listarEntradas() {
+    setListando(true);
+    setErroEntradas('');
+    const r = await listarEntradasDoObs(salvarObs());
+    if (r.ok) setEntradas(r.entradas);
+    else setErroEntradas(r.erro);
+    setListando(false);
+  }
+  function alternarAlertas() {
+    gravar('configAlertasAberto', !alertasAbertos);
+    setAlertasAbertos(!alertasAbertos);
+  }
+  const todosOsAlertas = TIPOS_DE_ALERTA.flatMap(g => g.itens);
+  const alertasNaAbaTudo = todosOsAlertas.filter(i => apareceNoChatGeral(i.id, config.alertasNoChat.escolhas)).length;
   function mudarMultistream(parte) {
     const multistream = { ...config.multistream, ...parte };
     gravarSecao('multistream', multistream);
@@ -146,7 +178,13 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
       </div>
 
       <div className="config-secao" id="config-alertas">
-        <h3>Alertas no chat</h3>
+        <h3>
+          <button type="button" id="config-alertas-recolher" className="config-recolher" aria-expanded={alertasAbertos} onClick={alternarAlertas}>
+            <span className="seta">{alertasAbertos ? '▾' : '▸'}</span> Alertas no chat
+          </button>
+          {!alertasAbertos && <span className="resumo" id="config-alertas-resumo">{alertasNaAbaTudo} de {todosOsAlertas.length} na aba Tudo</span>}
+        </h3>
+        {alertasAbertos && <>
         <p className="dica">A aba <b>Alertas</b> mostra todos os alertas, sempre. Marque os que também devem aparecer na aba <b>Tudo</b> e nas abas de cada plataforma.</p>
         {semPontosDeCanal && <p className="dica" id="aviso-sem-afiliacao">O seu canal da Twitch ainda não é afiliado nem parceiro: a Twitch só libera os pontos do canal (e por isso os resgates e os alertas deles) para afiliados e parceiros.</p>}
         {TIPOS_DE_ALERTA.map(g => (
@@ -161,13 +199,102 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
           </div>
         ))}
         <button type="button" id="config-alertas-padrao" className="link" onClick={voltarAoPadraoDosAlertas}>Voltar ao padrão</button>
+        </>}
       </div>
 
       <div className="config-secao">
         <h3>YouTube</h3>
-        <label className="rotulo" htmlFor="config-youtube-categoria">Categoria da transmissão</label>
-        <input id="config-youtube-categoria" type="text" value={config.youtube.categoria} placeholder="Gaming" spellCheck={false} onChange={e => mudarYoutube({ categoria: e.target.value })} />
-        <p className="dica">O YouTube só tem categorias fixas (como Gaming, Entertainment ou Education) e o jogo não dá para escolher pela API. Esta categoria vai junto do título quando você confirma; deixe vazio para não mexer nela. Precisa do código de <b>Painel-YouTube.cs</b> na ação <b>Painel: YouTube</b>.</p>
+        <span className="rotulo">Trocar a categoria conforme a live</span>
+        <div className="regras-youtube" id="regras-youtube">
+          {config.youtube.regras.map((r, i) => (
+            <div key={i} className={`regra-youtube${r.jogos ? ' regra-youtube-jogos' : ''}`}>
+              <input type="text" className="regra-palavras" value={r.palavras} spellCheck={false} aria-label={r.jogos ? 'Nomes de jogos' : 'Palavras da regra'}
+                     placeholder={r.jogos ? 'Qualquer jogo (ou nomes: Marvel Rivals, Minecraft…)' : 'Palavras: Just Chatting, Conversando…'}
+                     onChange={e => mudarRegra(i, { palavras: e.target.value })} />
+              <div className="regra-youtube-linha">
+                <span className="regra-igual">=</span>
+                <select value={r.categoria} aria-label="Categoria do YouTube" onChange={e => mudarRegra(i, { categoria: e.target.value })}>
+                  {!CATEGORIAS_DO_YOUTUBE.some(c => c.nome === r.categoria) && <option value={r.categoria}>{r.categoria}</option>}
+                  {CATEGORIAS_DO_YOUTUBE.map(c => <option key={c.nome} value={c.nome}>{c.rotulo}</option>)}
+                </select>
+                {!r.jogos && <button type="button" className="atalho-remove regra-apagar" onClick={() => apagarRegra(i)} title="Apagar esta regra" aria-label="Apagar esta regra">✕</button>}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="linha-botoes">
+          <button type="button" className="link" id="regra-nova" onClick={novaRegra}>+ Nova regra</button>
+          <button type="button" className="link" id="regras-padrao" onClick={regrasDeFabrica}>Voltar ao padrão</button>
+        </div>
+        <label className="opcao-linha" htmlFor="config-youtube-info-ligado">
+          <input id="config-youtube-info-ligado" type="checkbox" checked={config.youtubeInfo.ligado} onChange={e => mudarSecao('youtubeInfo', { ligado: e.target.checked })} />
+          Mostrar tags e descrição do YouTube no painel Tags
+        </label>
+      </div>
+
+      <div className="config-secao">
+        <h3>Predefinições de live</h3>
+        <label className="opcao-linha" htmlFor="config-presets-ligado">
+          <input id="config-presets-ligado" type="checkbox" checked={config.presets.ligado} onChange={e => mudarSecao('presets', { ligado: e.target.checked })} />
+          Usar predefinições de live
+        </label>
+      </div>
+
+      <div className="config-secao">
+        <h3>Modos do chat (Twitch)</h3>
+        <label className="opcao-linha" htmlFor="config-modos-ligado">
+          <input id="config-modos-ligado" type="checkbox" checked={config.modosDoChat.ligado} onChange={e => mudarSecao('modosDoChat', { ligado: e.target.checked })} />
+          Usar os modos do chat
+        </label>
+        <p className="dica">Mostra o painel <b>Modos do chat</b>, com só emotes, modo lento, só seguidores e só inscritos num toque.</p>
+        {config.modosDoChat.ligado && <>
+        <label className="rotulo" htmlFor="config-modos-lento">Tempo entre mensagens no modo lento</label>
+        <select id="config-modos-lento" value={config.modosDoChat.lentoSegundos} onChange={e => mudarSecao('modosDoChat', { lentoSegundos: Number(e.target.value) })}>
+          {[3, 5, 10, 15, 30, 60, 120].map(s => <option key={s} value={s}>{s} segundos</option>)}
+        </select>
+        <label className="rotulo" htmlFor="config-modos-seguidores">Só seguidores: seguindo há pelo menos</label>
+        <select id="config-modos-seguidores" value={config.modosDoChat.seguidoresMinutos} onChange={e => mudarSecao('modosDoChat', { seguidoresMinutos: Number(e.target.value) })}>
+          {[[0, 'qualquer tempo (todos os seguidores)'], [10, '10 minutos'], [30, '30 minutos'], [60, '1 hora'], [1440, '1 dia'], [10080, '1 semana'], [43200, '1 mês']].map(([m, t]) => <option key={m} value={m}>{t}</option>)}
+        </select>
+        </>}
+      </div>
+
+      <div className="config-secao">
+        <h3>Clipe da Twitch</h3>
+        <label className="opcao-linha" htmlFor="config-clipe-ligado">
+          <input id="config-clipe-ligado" type="checkbox" checked={config.clipe.ligado} onChange={e => mudarSecao('clipe', { ligado: e.target.checked })} />
+          Mostrar o botão de clipe no painel Momentos
+        </label>
+        {config.clipe.ligado && <>
+        <label className="rotulo" htmlFor="config-clipe-duracao">Duração do clipe</label>
+        <select id="config-clipe-duracao" value={config.clipe.duracao} onChange={e => mudarSecao('clipe', { duracao: Number(e.target.value) })}>
+          {[15, 30, 45, 60].map(s => <option key={s} value={s}>{s} segundos</option>)}
+        </select>
+        </>}
+      </div>
+
+      <div className="config-secao">
+        <h3>Mudo do microfone</h3>
+        <label className="opcao-linha" htmlFor="config-mic-ligado">
+          <input id="config-mic-ligado" type="checkbox" checked={config.mic.ligado} onChange={e => mudarSecao('mic', { ligado: e.target.checked })} />
+          Mostrar o botão de mudo do microfone
+        </label>
+        {config.mic.ligado && <>
+        <label className="rotulo" htmlFor="config-mic-entrada">Entrada do microfone no OBS</label>
+        <input id="config-mic-entrada" type="text" value={config.mic.entrada} placeholder="Mic/Aux" spellCheck={false} onChange={e => mudarSecao('mic', { entrada: e.target.value })} />
+        <div className="linha-botoes">
+          <button type="button" id="config-mic-listar" onClick={listarEntradas} disabled={listando}>{listando ? 'Lendo o OBS…' : 'Listar as entradas do OBS'}</button>
+        </div>
+        {entradas && entradas.length > 0 && (
+          <select id="config-mic-escolher" value="" onChange={e => { if (e.target.value) mudarSecao('mic', { entrada: e.target.value, ligado: true }); }}>
+            <option value="">Escolha o microfone…</option>
+            {entradas.map(i => <option key={i.nome} value={i.nome}>{i.nome}{i.tipo ? ` (${i.tipo})` : ''}</option>)}
+          </select>
+        )}
+        {entradas && entradas.length === 0 && <p className="aviso">O OBS não tem nenhuma entrada de áudio.</p>}
+        {erroEntradas && <p className="resultado-teste nivel-2">✕ {erroEntradas}</p>}
+        {!config.mic.entrada.trim() && <p className="aviso">Escolha a entrada do microfone para o botão aparecer.</p>}
+        </>}
       </div>
 
       <div className="config-secao">

@@ -9,8 +9,9 @@ const REENVIO_MS = 15000;
 const TIPOS_DE_TRANSMISSAO = new Set(['rtmp_output', 'ffmpeg_output', 'srt_output', 'rist_output']);
 const NOMES_DA_PRINCIPAL = new Set(['adv_stream', 'simple_stream']);
 
-// Uma conexão que autentica e responde a pedidos por requestId. `aoFechar` roda quando a conexão cai.
-function abrirConexao({ url, senha }, aoFechar) {
+// Uma conexão que autentica e responde a pedidos por requestId. `aoFechar` roda quando a conexão cai. `eventos` é a máscara de assinatura do
+// obs-websocket (0 = nenhum evento; 8 = os das entradas, como o mudo do microfone) e `aoEvento` recebe cada evento ({ eventType, eventData }).
+function abrirConexao({ url, senha }, aoFechar, { eventos = 0, aoEvento } = {}) {
   const pendentes = new Map();
   let proximo = 0;
   let ws;
@@ -27,7 +28,7 @@ function abrirConexao({ url, senha }, aoFechar) {
       let m;
       try { m = JSON.parse(ev.data); } catch (_) { return; }
       if (m.op === 0) {
-        const identificar = { rpcVersion: 1, eventSubscriptions: 0 };
+        const identificar = { rpcVersion: 1, eventSubscriptions: eventos };
         const a = m.d && m.d.authentication;
         if (a) {
           if (!senha) { reject(new Error('o OBS pede senha: coloque a do servidor WebSocket nas configurações')); return; }
@@ -36,6 +37,8 @@ function abrirConexao({ url, senha }, aoFechar) {
         ws.send(JSON.stringify({ op: 1, d: identificar }));
       } else if (m.op === 2) {
         resolve();
+      } else if (m.op === 5) {
+        if (aoEvento) aoEvento(m.d);
       } else if (m.op === 7) {
         const p = pendentes.get(m.d.requestId);
         if (!p) return;
@@ -54,9 +57,12 @@ function abrirConexao({ url, senha }, aoFechar) {
 }
 
 const ehTransmissao = o => o && TIPOS_DE_TRANSMISSAO.has(o.outputKind);
+const EVENTOS_DAS_ENTRADAS = 8; // InputMuteStateChanged e os outros eventos das entradas de áudio do OBS
 
 // Lê o OBS a cada INTERVALO_MS e chama aoAtualizar(saude): { conectado, erro?, ativo, ms, fps, cpu, destinos, kbps, perdaPct, congestao,
-// reconectando, renderPct, encoderPct, msPorQuadro, principalAtiva, msPrincipal, msDestinos }. `ms` é o tempo da transmissão: o da principal do OBS e, sem ela, o dos destinos; `destinos` é quantas saídas de transmissão estão no ar.
+// reconectando, renderPct, encoderPct, msPorQuadro, principalAtiva, msPrincipal, msDestinos, micMudo, micErro }. Com `config.mic` (o nome da entrada
+// de áudio do microfone no OBS), lê também se ela está no mudo: `micMudo` é true, false ou null (sem entrada de microfone ou não achada, e então
+// `micErro` diz o motivo); o evento do OBS atualiza na hora, sem esperar o próximo ciclo. `ms` é o tempo da transmissão: o da principal do OBS e, sem ela, o dos destinos; `destinos` é quantas saídas de transmissão estão no ar.
 // Devolve a função que encerra a leitura.
 export function observarSaudeDoObs(config, aoAtualizar) {
   let parado = false;
@@ -64,10 +70,16 @@ export function observarSaudeDoObs(config, aoAtualizar) {
   let temporizador = null;
   let amostraAnterior = null;
   let statsAnterior = null;
+  let ultima = null; // a última saúde entregue: o evento de mudo a reaproveita
+  const entregar = saude => { ultima = saude; aoAtualizar(saude); };
 
   async function ciclo() {
     try {
-      const [stats, principal, lista] = await Promise.all([conexao.pedir('GetStats'), conexao.pedir('GetStreamStatus'), conexao.pedir('GetOutputList')]);
+      // O mudo do microfone nunca derruba a leitura da saúde: sem entrada, ou com o nome errado, só vira micErro.
+      const lerMic = config.mic
+        ? conexao.pedir('GetInputMute', { inputName: config.mic }).then(r => ({ mudo: Boolean(r.inputMuted) }), e => ({ erro: e.message }))
+        : Promise.resolve(null);
+      const [stats, principal, lista, mic] = await Promise.all([conexao.pedir('GetStats'), conexao.pedir('GetStreamStatus'), conexao.pedir('GetOutputList'), lerMic]);
       const ativas = (lista.outputs || []).filter(o => ehTransmissao(o) && o.outputActive);
       const nomesDeDestinos = [...new Set(ativas.filter(o => !NOMES_DA_PRINCIPAL.has(o.outputName)).map(o => o.outputName))];
       const statusDeDestino = nomesDeDestinos.length ? await conexao.pedir('GetOutputStatus', { outputName: nomesDeDestinos[0] }).catch(() => null) : null;
@@ -86,29 +98,34 @@ export function observarSaudeDoObs(config, aoAtualizar) {
       const quadros = { renderPulados: stats.renderSkippedFrames || 0, renderTotal: stats.renderTotalFrames || 0, encoderPulados: stats.outputSkippedFrames || 0, encoderTotal: stats.outputTotalFrames || 0 };
       const qualidade = qualidadeDeQuadros(statsAnterior, quadros) || { renderPct: 0, encoderPct: 0 };
       statsAnterior = quadros;
-      aoAtualizar({
-        conectado: true, lidoEm: Date.now(), renderPct: qualidade.renderPct, encoderPct: qualidade.encoderPct, msPorQuadro: stats.averageFrameRenderTime ?? null, ativo: ativas.length > 0, principalAtiva: Boolean(principal.outputActive), msPrincipal, msDestinos, ms: msPrincipal || msDestinos, destinos: ativas.length,
+      entregar({
+        conectado: true, lidoEm: Date.now(), micMudo: mic && !mic.erro ? mic.mudo : null, micErro: mic && mic.erro ? mic.erro : '', renderPct: qualidade.renderPct, encoderPct: qualidade.encoderPct, msPorQuadro: stats.averageFrameRenderTime ?? null, ativo: ativas.length > 0, principalAtiva: Boolean(principal.outputActive), msPrincipal, msDestinos, ms: msPrincipal || msDestinos, destinos: ativas.length,
         fps: stats.activeFps ?? null, cpu: stats.cpuUsage ?? null,
         kbps: saude.kbps, perdaPct: saude.perdaPct, congestao: medido ? medido.outputCongestion ?? null : null,
         reconectando: Boolean((principal && principal.outputReconnecting) || (statusDeDestino && statusDeDestino.outputReconnecting)),
       });
     } catch (erro) {
-      if (!parado) aoAtualizar({ conectado: false, erro: erro.message });
+      if (!parado) entregar({ conectado: false, erro: erro.message });
     }
   }
 
   function conectar() {
     if (parado) return;
+    const aoEvento = d => {
+      if (d.eventType === 'InputMuteStateChanged' && config.mic && d.eventData && d.eventData.inputName === config.mic && ultima && ultima.conectado) {
+        entregar({ ...ultima, micMudo: Boolean(d.eventData.inputMuted), micErro: '' });
+      }
+    };
     conexao = abrirConexao(config, () => {
       clearInterval(temporizador);
       if (!parado) setTimeout(conectar, REENVIO_MS);
-    });
+    }, { eventos: config.mic ? EVENTOS_DAS_ENTRADAS : 0, aoEvento });
     conexao.pronta.then(() => {
       if (parado) { conexao.fechar(); return; }
       ciclo();
       temporizador = setInterval(ciclo, INTERVALO_MS);
     }).catch(erro => {
-      if (!parado) aoAtualizar({ conectado: false, erro: erro.message });
+      if (!parado) entregar({ conectado: false, erro: erro.message });
     });
   }
   conectar();
@@ -117,6 +134,39 @@ export function observarSaudeDoObs(config, aoAtualizar) {
     clearInterval(temporizador);
     if (conexao) conexao.fechar();
   };
+}
+
+// Liga ou tira do mudo a entrada de áudio `nome` (o microfone escolhido nas configurações), com uma conexão só para isso. Devolve { ok, mudo?, erro? }:
+// `mudo` é o estado novo, como o OBS o deixou.
+export async function alternarMudoDaEntrada(config, nome) {
+  const conexao = abrirConexao(config);
+  try {
+    await conexao.pronta;
+    const r = await conexao.pedir('ToggleInputMute', { inputName: nome });
+    return { ok: true, mudo: Boolean(r.inputMuted) };
+  } catch (erro) {
+    return { ok: false, erro: erro.message };
+  } finally {
+    conexao.fechar();
+  }
+}
+
+// As entradas do OBS (fontes com áudio ou não: o OBS não diz qual é o microfone), as de captura de áudio primeiro, para a pessoa escolher o microfone nas
+// configurações. Devolve { ok, entradas: [{ nome, tipo }], erro? }.
+export async function listarEntradasDoObs(config) {
+  const conexao = abrirConexao(config);
+  try {
+    await conexao.pronta;
+    const r = await conexao.pedir('GetInputList');
+    const entradas = (r.inputs || []).map(i => ({ nome: String(i.inputName), tipo: String(i.unversionedInputKind || i.inputKind || '') }));
+    const ehAudio = i => /audio|wasapi|pulse|alsa|coreaudio|jack|dshow/i.test(i.tipo);
+    entradas.sort((a, b) => Number(ehAudio(b)) - Number(ehAudio(a)));
+    return { ok: true, entradas };
+  } catch (erro) {
+    return { ok: false, entradas: [], erro: erro.message };
+  } finally {
+    conexao.fechar();
+  }
 }
 
 // Inicia a transmissão principal do OBS (o mesmo que o botão Iniciar transmissão dele); os destinos do multistream (obs-multi-rtmp) começam
