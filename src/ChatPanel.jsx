@@ -7,7 +7,10 @@ import { assinarStreamerbot } from './streamerbot.js';
 import { passaNaAba } from './alertas.js';
 import { lerConfig } from './configuracoes.js';
 import { plataformaDe } from './plataformas.js';
-import { executarChat, NOME_DA_PLATAFORMA, PLATAFORMAS_DO_DOCK } from './acoes.js';
+import { decidirResgate, executarChat, responderMensagem, temControlesAgora, NOME_DA_PLATAFORMA, PLATAFORMAS_DO_DOCK } from './acoes.js';
+import { ler, gravar } from './armazenamento.js';
+import FilaDeResgates from './FilaDeResgates.jsx';
+import PerfilCard from './PerfilCard.jsx';
 import { IconePlataforma, Traco } from './Icones.jsx';
 import { PopupPunicoes } from './Listas.jsx';
 import { registrar } from './punicoes.js';
@@ -28,6 +31,16 @@ const ABAS = [
   { id: 'youtube', dica: 'Só o YouTube: mostra as mensagens e os alertas principais dele, e envia só para ele' },
   { id: 'alertas', dica: 'Todos os alertas de todas as plataformas, inclusive anúncio, resgates, hype train, votações e previsões', texto: 'Alertas' },
 ];
+
+// Abas ligadas nas configurações (config.chat): a fila de resgates da Twitch e só as mensagens retidas pelo AutoMod.
+const ABA_RESGATES = { id: 'resgates', dica: 'Fila de resgates de pontos da Twitch, com Cumprir e Reembolsar', texto: 'Resgates', marca: 'twitch' };
+const ABA_AUTOMOD = { id: 'automod', dica: 'Só as mensagens que o AutoMod da Twitch reteve, com Permitir e Negar', texto: 'AutoMod' };
+const MAX_FILA = 60;
+// A fila fica guardada: recarregar o dock não perde os resgates que ainda esperam. Um "enviando" que ficou pelo caminho volta a pendente.
+const lerFila = () => {
+  const f = ler('filaDeResgates', []);
+  return Array.isArray(f) ? f.filter(i => i && i.uid && i.nome).map(i => (i.estado === 'enviando' ? { ...i, estado: 'pendente' } : i)).slice(-MAX_FILA) : [];
+};
 
 // Comandos da caixa: devolve { verbo, args, plataformas } (plataformas que aceitam) ou { erro }.
 function interpretarComando(texto) {
@@ -57,7 +70,7 @@ const ROTULO_DO_ALERTA = {
   new_follower: 'Seguidor', new_subscriber: 'Sub', resub: 'Resub', subscription_gift: 'Sub de presente', sponsorship: 'Membro',
   membermilestone: 'Membro', giftpurchase: 'Presente', giftredemption: 'Presente', cheer: 'Bits', gift: 'Presente',
   jeweldonation: 'Joias', hype_chat: 'Hype Chat', superchat: 'Superchat', supersticker: 'Super Sticker', raid: 'Raid',
-  hype_train: 'Hype train', poll: 'Votação', prediction: 'Previsão', upcoming_ad: 'Anúncio',
+  hype_train: 'Hype train', poll: 'Votação', prediction: 'Previsão', upcoming_ad: 'Anúncio', livepix: 'LivePix',
 };
 
 const mesmoUsuario = (item, nome, plataforma) => item.tipo === 'chat' && item.plataforma === plataforma && item.nome.toLowerCase() === String(nome).toLowerCase();
@@ -65,7 +78,7 @@ const mesmoUsuario = (item, nome, plataforma) => item.tipo === 'chat' && item.pl
 // memo: uma linha só refaz quando o seu item muda (as atualizações mantêm a identidade das demais).
 const STATUS_DA_RETIDA = { permitida: 'permitida', negada: 'negada', expirada: 'expirou sem resposta' };
 
-const Linha = memo(function Linha({ item, aoMenu, aoRapida, aoRetida }) {
+const Linha = memo(function Linha({ item, aoMenu, aoRapida, aoRetida, aoResponder }) {
   const plat = plataformaDe(item.plataforma);
   if (item.tipo === 'retida') {
     return (
@@ -90,7 +103,7 @@ const Linha = memo(function Linha({ item, aoMenu, aoRapida, aoRetida }) {
   }
   if (item.tipo === 'alerta') {
     return (
-      <div className={`linha linha-alerta${item.evento === 'reward' ? ' linha-resgate' : ''}`} style={{ '--cor-plataforma': plat.cor }}>
+      <div className={`linha linha-alerta${item.evento === 'reward' ? ' linha-resgate' : item.evento === 'livepix' ? ' linha-livepix' : ''}`} style={{ '--cor-plataforma': plat.cor }}>
         <span className="hora">{item.hora}</span>
         <span className="marca-plataforma"><IconePlataforma id={item.plataforma} /></span>
         <div className="conteudo">
@@ -121,6 +134,7 @@ const Linha = memo(function Linha({ item, aoMenu, aoRapida, aoRetida }) {
         <button type="button" title="Banir" onClick={() => aoRapida('banir', item)}><Traco nome="banir" /></button>
         <button type="button" title="Silenciar 5 min" onClick={() => aoRapida('silenciar', item)}><Traco nome="tempo" /></button>
         {item.plataforma !== 'youtube' && <button type="button" title="Apagar mensagem" onClick={() => aoRapida('apagar', item)}><Traco nome="lixeira" /></button>}
+        {aoResponder && <button type="button" title="Responder" onClick={() => aoResponder(item)}><Traco nome="responder" /></button>}
         <button type="button" title="Mais opções" onClick={e => aoMenu(e, item)}><Traco nome="mais" /></button>
       </div>
     </div>
@@ -143,12 +157,16 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
   const [fixadas, setFixadas] = useState([]);
   const [punicoes, setPunicoes] = useState([]);
   const [popupAberto, setPopupAberto] = useState(false);
+  const [fila, setFila] = useState(lerFila);          // fila de resgates da Twitch (aba Resgates)
+  const [respondendo, setRespondendo] = useState(null); // { plataforma, msgId, nome, trecho }: a mensagem que a caixa vai responder
+  const [perfil, setPerfil] = useState(null);         // a mensagem de quem o cartão de perfil mostra
   const [agora, setAgora] = useState(() => Date.now()); // relê quem já saiu do silêncio quando o popup abre
   const lista = useRef(null);
   const seguindo = useRef(true);
   const itensRef = useRef(itens);
   const passaRef = useRef(null);
   const escolhas = useMemo(() => lerConfig().alertasNoChat.escolhas, [oculto]);
+  const chatExtra = useMemo(() => lerConfig().chat, [oculto]); // abas e ações do chat ligadas nas configurações
   const temporizadorStatus = useRef(null);
   const contador = useRef(0);
   const resgatesRecentes = useRef([]); // resgates com texto dos últimos segundos (resgates.js): a mensagem igual do chat não entra de novo
@@ -200,7 +218,7 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
           if (mensagemRepeteResgate(resgatesRecentes.current, { plataforma: m.type, nome: m.chatname, texto: m.chattexto || '' })) break;
           const item = {
             uid: ++contador.current, criadoEm: Date.now(), tipo: 'chat', plataforma: m.type, msgId: m.id, userId: m.userid, login: m.username, nome: m.chatname,
-            cor: m.nameColor, html: m.chatmessage, texto: m.chattexto || '', insignias: m.chatbadges || [], hora: hora(), apagada: false, primeira: !!m.primeira,
+            cor: m.nameColor, avatar: m.chatimg || '', html: m.chatmessage, texto: m.chattexto || '', insignias: m.chatbadges || [], hora: hora(), apagada: false, primeira: !!m.primeira,
           };
           setItens(a => acrescenta(a, [item]));
           contaNovas([item]);
@@ -212,6 +230,11 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
           const nome = a.principal || a.chatname;
           const detalhe = [a.destaque, a.detalhe].filter(Boolean).join(' · ');
           const item = alertaDaPlataforma(a.type, nome, rotulo, detalhe, a.event, a.mensagem || '');
+          if (a.type === 'twitch' && a.event === 'reward' && a.resgate) {
+            // Os resgates da Twitch (recompensa personalizada) entram na fila da aba Resgates; os que se completam sozinhos ficam como "automático".
+            const entrada = { uid: `r${Date.now().toString(36)}-${++contador.current}`, redemptionId: a.resgate.id, rewardId: a.resgate.rewardId, nome: a.chatname, detalhe: a.detalhe || '', texto: a.mensagem || '', hora: hora(), estado: a.resgate.automatico ? 'automatico' : !a.resgate.id || !a.resgate.rewardId ? 'semid' : 'pendente' };
+            setFila(l => [...l, entrada].slice(-MAX_FILA));
+          }
           if (a.event === 'reward' && a.mensagem) {
             // Se a mensagem do chat chegou antes do resgate, ela sai da lista (o resgate fica com o texto).
             const resgate = { plataforma: a.type, nome: a.chatname, texto: a.mensagem };
@@ -255,6 +278,12 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
     });
   }, [registrarPunicao]);
 
+  // A fila de resgates fica guardada; e uma aba desligada nas configurações não pode continuar escolhida.
+  useEffect(() => { gravar('filaDeResgates', fila.slice(-MAX_FILA)); }, [fila]);
+  useEffect(() => {
+    if ((filtro === 'resgates' && !chatExtra.resgates) || (filtro === 'automod' && !chatExtra.automod)) setFiltro('tudo');
+  }, [filtro, chatExtra]);
+
   // ---- Rolagem ----
 
   const visiveis = useMemo(() => itens.filter(i => passaNaAba(i, filtro, escolhas) && passaNaBusca(i)), [itens, filtro, escolhas, passaNaBusca]);
@@ -262,7 +291,7 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
   useLayoutEffect(() => {
     const el = lista.current;
     if (el && seguindo.current) el.scrollTop = el.scrollHeight;
-  }, [visiveis, filtro, oculto]);
+  }, [visiveis, filtro, oculto, fila]);
 
   function aoRolar() {
     const el = lista.current;
@@ -343,6 +372,28 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
     mudar(verbo === 'permitir' ? 'permitida' : 'negada');
   }
 
+  // Cumpre ou reembolsa um resgate da fila (ação Painel: Controles). Se a Twitch ou o código da ação recusar, o item volta a pendente com o motivo.
+  async function decidirResgateDaFila(item, decisao) {
+    const mudar = parte => setFila(l => l.map(i => (i.uid === item.uid ? { ...i, ...parte } : i)));
+    mudar({ estado: 'enviando', erro: '' });
+    const r = await decidirResgate({ rewardId: item.rewardId, redemptionId: item.redemptionId, decisao });
+    if (r.nivel === 2) mudar({ estado: 'pendente', erro: /desconhecida|atualize/i.test(r.texto) ? 'Cole de novo o código de Painel-Controles.cs na ação Painel: Controles.' : r.texto });
+    else mudar({ estado: decisao === 'cumprir' ? 'cumprido' : 'reembolsado', erro: r.nivel === 1 ? '(sem confirmação)' : '' });
+  }
+
+  // A caixa passa a responder a essa mensagem (na Twitch e na Kick é resposta de verdade; no YouTube, que não tem, sai com @nome).
+  function iniciarResposta(item) {
+    setMenu(null);
+    setPerfil(null);
+    setRespondendo({ plataforma: item.plataforma, msgId: item.msgId, nome: item.nome, trecho: String(item.texto || '').slice(0, 70) });
+    setTimeout(() => document.getElementById('caixa-mensagem')?.focus(), 0);
+  }
+  function mostrarPerfil(item) {
+    setMenu(null);
+    setPopupAberto(false);
+    setPerfil(item);
+  }
+
   function acaoRapida(verbo, item) {
     if (verbo === 'banir') pedirBanir(item);
     else if (verbo === 'silenciar') moderar('silenciar', item, SILENCIO_RAPIDO_S);
@@ -366,16 +417,17 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
   const abrirMenu = useCallback((e, item) => {
     e.stopPropagation();
     setPopupAberto(false);
-    setMenu({ item, x: Math.min(e.clientX, window.innerWidth - 190), y: Math.min(e.clientY, window.innerHeight - 290) });
+    setPerfil(null);
+    setMenu({ item, x: Math.min(e.clientX, window.innerWidth - 190), y: Math.min(e.clientY, window.innerHeight - 340) });
   }, []);
   useEffect(() => {
-    if (!menu && !popupAberto) return undefined;
-    const fecha = () => { setMenu(null); setPopupAberto(false); };
+    if (!menu && !popupAberto && !perfil) return undefined;
+    const fecha = () => { setMenu(null); setPopupAberto(false); setPerfil(null); };
     const tecla = e => { if (e.key === 'Escape') fecha(); };
     window.addEventListener('click', fecha);
     window.addEventListener('keydown', tecla);
     return () => { window.removeEventListener('click', fecha); window.removeEventListener('keydown', tecla); };
-  }, [menu, popupAberto]);
+  }, [menu, popupAberto, perfil]);
 
   function mencionar(nome) {
     setTexto(t => `${t} @${nome} `.trimStart());
@@ -393,6 +445,24 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
       setNovas(0);
       setTexto('');
       avisar('Chat do LiveHelm limpo (nada foi apagado nas plataformas)', false);
+      return;
+    }
+    // Respondendo a uma mensagem: sai só para a plataforma dela (comando com / continua sendo comando).
+    if (respondendo && !t.startsWith('/')) {
+      const alvo = respondendo;
+      setEnviando(true);
+      // Com a ação Painel: Controles a resposta fica ligada à mensagem (Twitch e Kick); sem ela, vale o jeito mais simples: a mensagem sai para a plataforma com @nome.
+      let r;
+      if (temControlesAgora()) r = await responderMensagem({ plataforma: alvo.plataforma, mensagemId: alvo.msgId, mensagem: t, usuario: alvo.nome });
+      else {
+        const erro = await executarChat('enviar', { plataforma: alvo.plataforma, mensagem: `@${alvo.nome} ${t}` });
+        r = erro ? { nivel: 2, texto: erro } : { nivel: 1, texto: 'enviada com @nome (a resposta ligada à mensagem precisa da ação Painel: Controles)' };
+      }
+      setEnviando(false);
+      if (r.nivel === 2) { avisar(`Não respondi: ${r.texto}`); return; }
+      setTexto('');
+      setRespondendo(null);
+      avisar(r.nivel === 1 ? `Resposta a ${alvo.nome} ${r.texto}` : `Resposta enviada a ${alvo.nome}`, false);
       return;
     }
     let destinos = Array.isArray(filtro) ? filtro : PLATAFORMAS_DO_DOCK.filter(p => ativas[p]);
@@ -423,21 +493,26 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
     }
   }
 
-  const placeholder = Array.isArray(filtro) ? `Mensagem para ${filtro.map(p => NOME_DA_PLATAFORMA[p]).join(' e ')}` : 'Mensagem';
+  const pendentesDaFila = fila.filter(i => i.estado === 'pendente' || i.estado === 'enviando').length;
+  const pendentesDoAutomod = itens.filter(i => i.tipo === 'retida' && (i.status === 'pendente' || i.status === 'enviando')).length;
+  const abas = [...ABAS, ...(chatExtra.resgates ? [{ ...ABA_RESGATES, contagem: pendentesDaFila }] : []), ...(chatExtra.automod ? [{ ...ABA_AUTOMOD, contagem: pendentesDoAutomod }] : [])];
+  const placeholder = respondendo ? `Responder a ${respondendo.nome} (${NOME_DA_PLATAFORMA[respondendo.plataforma] || respondendo.plataforma})` : Array.isArray(filtro) ? `Mensagem para ${filtro.map(p => NOME_DA_PLATAFORMA[p]).join(' e ')}` : 'Mensagem';
   const vazio = visiveis.length === 0;
   const marcada = id => (Array.isArray(filtro) ? filtro.includes(id) : filtro === id);
 
   return (
     <section className="cartao chat" id="painel-chat" style={oculto ? { display: 'none' } : undefined}>
-      <div className="abas" role="tablist">
-        {ABAS.map(a => {
+      <div className={`abas${chatExtra.resgates || chatExtra.automod ? ' abas-compactas' : ''}`} role="tablist">
+        {abas.map(a => {
           const plat = PLATAFORMAS_DO_DOCK.includes(a.id) ? plataformaDe(a.id) : null;
           return (
             <button key={a.id} type="button" role="tab" aria-selected={marcada(a.id)} title={plat ? `${a.dica}: clique em mais de uma para ver e falar em várias` : a.dica} id={`aba-${a.id}`}
                     className={`aba${marcada(a.id) ? ' aba-ativa' : ''}`} style={plat ? { '--cor-aba': plat.cor } : undefined} onClick={() => trocarFiltro(a.id)}>
               {a.icone && <Traco nome={a.icone} />}
               {plat && <IconePlataforma id={a.id} tamanho={13} />}
+              {a.marca && <IconePlataforma id={a.marca} tamanho={13} />}
               {a.texto}
+              {a.contagem > 0 && <span className="contador" id={`contador-${a.id}`}>{a.contagem}</span>}
             </button>
           );
         })}
@@ -477,13 +552,18 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
       )}
 
       <div className="lista-chat" ref={lista} onScroll={aoRolar} id="lista-chat">
-        {vazio && <p className="vazio">{!conectado ? 'As mensagens aparecem aqui quando o Streamer.bot estiver conectado.' : termo || usuarioFiltro ? 'Nenhuma mensagem encontrada.' : 'Nenhuma mensagem ainda.'}</p>}
-        {visiveis.map(i => <Linha key={i.uid} item={i} aoMenu={abrirMenu} aoRapida={acaoRapida} aoRetida={moderarRetida} />)}
+        {filtro === 'resgates' ? <FilaDeResgates fila={fila} aoDecidir={decidirResgateDaFila} conectado={conectado} semAcao={!temControlesAgora()} /> : <>
+          {vazio && <p className="vazio">{!conectado ? 'As mensagens aparecem aqui quando o Streamer.bot estiver conectado.' : termo || usuarioFiltro ? 'Nenhuma mensagem encontrada.' : filtro === 'automod' ? 'Nenhuma mensagem retida pelo AutoMod.' : 'Nenhuma mensagem ainda.'}</p>}
+          {visiveis.map(i => <Linha key={i.uid} item={i} aoMenu={abrirMenu} aoRapida={acaoRapida} aoRetida={moderarRetida} aoResponder={i.tipo === 'chat' ? iniciarResposta : undefined} />)}
+        </>}
       </div>
       {novas > 0 && <button type="button" className="novas primario" onClick={irParaOFim}>{novas === 1 ? '1 nova ↓' : `${novas} novas ↓`}</button>}
 
       {menu && (
         <div className="menu" style={{ left: menu.x, top: menu.y }} onClick={e => e.stopPropagation()} role="menu">
+          <button type="button" role="menuitem" id="menu-responder" onClick={() => iniciarResposta(menu.item)}>Responder</button>
+          <button type="button" role="menuitem" id="menu-perfil" onClick={() => mostrarPerfil(menu.item)}>Ver perfil</button>
+          <hr />
           <button type="button" role="menuitem" onClick={() => { mencionar(menu.item.nome); setMenu(null); }}>Mencionar</button>
           <button type="button" role="menuitem" onClick={() => { copiarTexto(`${menu.item.nome}: ${menu.item.texto}`); setMenu(null); }}>Copiar mensagem</button>
           <hr />
@@ -507,9 +587,18 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
       )}
       {status && <p className={`status${status.erro ? ' status-erro' : ''}`} id="status-chat">{status.texto}</p>}
 
+      {perfil && <PerfilCard item={perfil} itens={itens} punicoes={punicoes} aoFechar={() => setPerfil(null)} aoResponder={() => iniciarResposta(perfil)}
+                             aoVerSo={() => { verSoEsteUsuario(perfil); setPerfil(null); }} />}
+      {respondendo && (
+        <div className="respondendo" id="respondendo">
+          <Traco nome="responder" tamanho={13} />
+          <span className="respondendo-texto" title={respondendo.trecho}>Respondendo a <b>{respondendo.nome}</b>{respondendo.trecho ? `: ${respondendo.trecho}` : ''}{respondendo.plataforma === 'youtube' ? ' (no YouTube sai com @nome)' : ''}</span>
+          <button type="button" title="Cancelar a resposta (Esc)" aria-label="Cancelar a resposta" onClick={() => setRespondendo(null)}>✕</button>
+        </div>
+      )}
       <div className="envio">
         <input id="caixa-mensagem" type="text" value={texto} placeholder={placeholder} title={COMANDOS} spellCheck
-               onChange={e => setTexto(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') enviar(); }} />
+               onChange={e => setTexto(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') enviar(); else if (e.key === 'Escape' && respondendo) setRespondendo(null); }} />
         <button type="button" id="botao-enviar" disabled={enviando || !conectado} onClick={enviar}>Enviar</button>
       </div>
     </section>

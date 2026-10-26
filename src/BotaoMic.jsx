@@ -32,15 +32,22 @@ export default function BotaoMic({ saude, obs, entrada }) {
   let classe = 'mic-ligado';
   if (!conectado) { dica = 'Microfone: o OBS não está conectado (confira o endereço e a senha nas configurações)'; classe = 'mic-indisponivel'; }
   else if (semEntrada) { dica = saude.micErro || `Não achei a entrada “${entrada}” no OBS: escolha o microfone de novo nas configurações`; classe = 'mic-indisponivel'; }
-  else if (mudo) { dica = `Microfone no mudo: clique para tirar “${entrada}” do mudo`; classe = 'mic-mudo'; }
+  else if (mudo) {
+    dica = `Microfone no mudo: clique para tirar “${entrada}” do mudo`;
+    classe = 'mic-mudo';
+    if (saude.falandoNoMudo) { dica = `Você está falando com o microfone no mudo! Clique para tirar “${entrada}” do mudo`; classe = 'mic-mudo mic-falando'; }
+  }
   if (erro) dica = erro;
 
   return (
+    <>
+    {mudo && saude && saude.falandoNoMudo && <span className="mic-aviso" id="mic-aviso" role="status">Você está no mudo!</span>}
     <button type="button" id="botao-mic" className={`botao-mic ${classe}`} aria-pressed={Boolean(mudo)} aria-label={dica} disabled={!pode} title={dica} onClick={alternar}>
       <svg className="icone" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z M6 11a6 6 0 0 0 12 0 M12 17v4 M9 21h6" />
         {mudo && <path d="M4 4l16 16" />}
       </svg>
     </button>
+    </>
   );
 }

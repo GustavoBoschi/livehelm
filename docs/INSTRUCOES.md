@@ -91,8 +91,8 @@ reconhece as que existem. Se alguma faltar, o painel que a usa mostra um aviso a
 
 ### Receita: ação com código C#
 
-As ações `Painel: Tags`, `Painel: Momentos`, `Painel: Chat` e (recomendada) `Painel: YouTube`, e as opcionais `Painel: Sem Categoria` e
-`Painel: Controles`, usam código pronto que vem neste projeto, na pasta [`acoes-streamerbot/`](../acoes-streamerbot).
+As ações `Painel: Tags`, `Painel: Momentos`, `Painel: Chat` e (recomendada) `Painel: YouTube`, e as opcionais `Painel: Sem Categoria`,
+`Painel: Controles` e `LivePix`, usam código pronto que vem neste projeto, na pasta [`acoes-streamerbot/`](../acoes-streamerbot).
 
 1. Crie a ação com a receita acima (passos 1 a 4).
 2. No painel de sub-ações, botão direito, **Core > C# > Execute C# Code**.
@@ -126,6 +126,8 @@ Sub-ações (nessa ordem), com estes valores:
 
 ### `Painel: YouTube`: título (e categoria) no YouTube
 
+> **A ação `Painel: YouTube` com o código C# precisa ter SÓ a sub-ação do código.** Se ela ainda tiver a sub-ação antiga **`YouTube > Set Title`** (da receita "sem código", mais abaixo), **apague-a**: o Streamer.bot a roda a cada pedido do dock, **até na leitura e ao mudar só a descrição ou as tags**, e como esses pedidos não levam título, o nome do argumento vira o título da live (**`%tituloLive%`**). O log do Streamer.bot avisa quando o título da live está assim ("o titulo da transmissao esta como …"). Para apagar: abra a ação, clique com o botão direito em `YouTube > Set Title` e escolha **Delete**; deixe só `Execute C# Code`. Depois escreva o título certo no painel Live.
+
 **Recomendado:** receita de **ação com código C#**, colando o conteúdo de
 [`acoes-streamerbot/Painel-YouTube.cs`](../acoes-streamerbot/Painel-YouTube.cs). Ela muda o título da transmissão que o Streamer.bot está
 monitorando e, se você deixar uma categoria em **Configurações > YouTube** (padrão `Gaming`), a categoria também. Depois grava o resultado
@@ -144,7 +146,7 @@ transmissão monitorada). Argumentos que o dock manda:
 **Tags e descrição (opcional, desligado por padrão):** em **Configurações > YouTube**, ligue **Mostrar tags e descrição do YouTube no painel Tags**. O painel passa a se chamar
 **Tags e descrição** e ganha um bloco **YouTube**: ele lê as tags e a descrição da transmissão, você edita (as tags do YouTube são palavras ou frases soltas, separadas por vírgula,
 e ficam escondidas: ajudam nas buscas) e **Aplicar no YouTube** manda só o que mudou. Sem live do YouTube aberta, o que você escrever fica guardado e é aplicado quando ela abrir.
-Isso usa a versão nova do código (`Painel-YouTube.cs`, versão 2): quem tem o código antigo vê o aviso "atualize o código da ação Painel: YouTube". Não é o "Título do jogo" do YouTube Studio,
+Isso usa a versão nova do código (`Painel-YouTube.cs`, versão 4): quem tem o código antigo vê o aviso "atualize o código da ação Painel: YouTube". Não é o "Título do jogo" do YouTube Studio,
 que a API não deixa preencher.
 
 **Sem transmissão não há título para mudar.** O título pertence a uma transmissão do YouTube, e o Streamer.bot só consegue mudar a que ele está
@@ -260,23 +262,28 @@ O aviso de anúncio (a Twitch avisa uma vez por minuto nos 5 minutos antes), o h
 moderação (banido, silenciado e chat limpo) aparecem só na aba **Alertas**. As abas **Twitch**, **Kick** e **YouTube** mostram o mesmo
 que a **Tudo**, só daquela plataforma. Você muda isso em **Configurações > Alertas no chat** ([seção 6](#6-configurar-o-dock)).
 
-### `Painel: Controles`: modos do chat e clipe da Twitch (opcional)
+### `Painel: Controles`: modos do chat, clipe, resgates, resposta e perfil (opcional)
 
-Só é preciso se você ligar os **Modos do chat** ou o **botão de clipe** em Configurações. Receita de **ação com código C#**, colando o conteúdo de
-[`acoes-streamerbot/Painel-Controles.cs`](../acoes-streamerbot/Painel-Controles.cs). Ela grava o resultado numa variável global (`painelControles`) e o dock o
-mostra (o modo ligado ou desligado, ou o link do clipe). Argumentos que o dock manda:
+É preciso se você ligar algum destes recursos em Configurações: **Modos do chat**, **botão de clipe** ou **aba Resgates**. Também melhora duas coisas que já funcionam sem ela: **Responder** (com a ação, na Twitch e na Kick a resposta fica ligada à mensagem; sem ela sai com @nome) e **Ver perfil** (com a ação, na Twitch traz a conta: idade, se segue, sub, mod e VIP). Receita de
+**ação com código C#**, colando o conteúdo de [`acoes-streamerbot/Painel-Controles.cs`](../acoes-streamerbot/Painel-Controles.cs) (versão 2: quem colou a versão
+antiga precisa colar de novo para resgates, resposta e perfil). Ela grava o resultado numa variável global (`painelControles`) e o dock o mostra. Argumentos que o dock manda:
 
 | Argumento | O que é |
 |---|---|
-| `acao` | `modo_chat` ou `clipe` |
+| `acao` | `modo_chat`, `clipe`, `resgate`, `responder`, `perfil_twitch` ou `ping` (a verificação da configuração pergunta a versão do código) |
 | `modo` | (modo_chat) `emotes`, `lento`, `seguidores` ou `inscritos` |
 | `ligar` | (modo_chat) `true` liga o modo, `false` desliga |
 | `segundos` | (modo lento) tempo entre as mensagens, de 3 a 120 |
 | `minutos` | (só seguidores) há quanto tempo segue, de 0 (todos) a 129600 |
 | `titulo` | (clipe) título do clipe; vazio, o título da live |
 | `duracao` | (clipe) de 5 a 60 segundos |
+| `decisao`, `rewardId`, `redemptionId` | (resgate) `cumprir` ou `reembolsar`, e os ids da recompensa e do resgate (só letras, números, `-`, `_` e `:`) |
+| `plataforma`, `mensagemId`, `mensagem`, `usuario` | (responder) a plataforma, o id da mensagem a responder, o texto e o nome de quem escreveu |
+| `usuarioId` | (perfil_twitch) o id do usuário na Twitch |
 
-Existe **só para a Twitch**: o Streamer.bot 1.0.7 não tem modo do chat nem clipe na Kick e no YouTube. O clipe só sai com a live **no ar na Twitch**.
+Modos do chat, clipe, cumprir e reembolsar resgates e o perfil existem **só para a Twitch**: o Streamer.bot 1.0.7 não tem isso para a Kick nem para o YouTube. Responder é
+resposta de verdade na Twitch e na Kick; no YouTube, que não tem, a mensagem sai com `@nome`. O clipe só sai com a live **no ar na Twitch**. A ação usa a sua conta
+(`USAR_BOT = false` no código; mude para `true` para responder com a conta do bot).
 
 ### `Painel: Anuncio`: adiar o anúncio da Twitch (opcional)
 
@@ -305,6 +312,64 @@ com a sub-ação nativa e o nome **exatamente** igual, por exemplo:
 
 O dock usa a ação da plataforma quando ela existe e a `Painel: Chat` quando não existe. Apagar mensagem, enquetes e previsões só
 funcionam pela `Painel: Chat`.
+
+### `LivePix`: as doações do LivePix no chat e no overlay (opcional)
+
+Só serve para quem recebe doações pelo [LivePix](https://livepix.gg). Cada doação vira um alerta ("Fulano apoiou", o valor e a mensagem) nas abas **Alertas** e **Tudo** do dock, com o **fundo azul do LivePix**
+e o símbolo do logo dele. O dock não fala com o LivePix: ele **ouve** o aviso de uma ação do Streamer.bot chamada **`LivePix`**, que consulta a API do LivePix a cada 10 segundos e avisa cada doação nova pelo
+WebSocket do Streamer.bot. O projeto *Overlay Dinâmico de Lives* **não usa esta ação**: na tela da live o áudio é do **widget do próprio LivePix** (escondido dentro do overlay) e a janela de alerta aparece no mesmo instante, porque o overlay ouve o aviso que o LivePix manda ao widget (a API só traz o texto, sem som, voz nem vídeo). **Esta ação serve só ao dock.** A mensagem que o LivePix marcar como imprópria
+fica retida: só o valor aparece.
+
+O código é o de [`acoes-streamerbot/LivePix.cs`](../acoes-streamerbot/LivePix.cs). Diferente das outras ações, esta usa **chaves** (que ficam em variáveis do Streamer.bot, nunca no código) e precisa de **References**.
+
+1. **Criar o aplicativo no LivePix.** No site do LivePix, nas **configurações da sua conta** (a documentação da API só diz isso, sem o nome exato do menu), crie um aplicativo. O nome pode ser qualquer um. Se
+   houver caixas de permissão, marque só a de **ler mensagens** (não marque carteira, conta nem webhooks). Deixe **Redirecionamentos** e **Webhooks** vazios: não são usados. Copie o **ID do cliente** (clicar no
+   campo copia) e o **segredo**; se você não copiou o segredo ao criar, use **Redefinir segredo** (o antigo deixa de valer). **Não compartilhe o segredo.**
+2. **Guardar as chaves no Streamer.bot**, em duas **variáveis globais persistentes** com estes nomes exatos: `livepixClientId` (o ID do cliente) e `livepixClientSecret` (o segredo). Jeito que funciona: crie uma
+   ação temporária `Criar chaves LivePix` (receita acima) e dê a ela um gatilho de comando qualquer (*Core > Commands > Command Triggered*, por exemplo `!lpix`; ele só serve para poder testar). Nas sub-ações, uma
+   *Core > Globals > Global (Set)* para cada variável, com o nome, o valor e **Persisted** marcado. Botão direito no gatilho, **Test Trigger**, para rodar uma vez; confira no botão **Global Variables** (barra de
+   cima) e **apague a ação** (o segredo ficaria escrito nela).
+3. **Criar a ação `LivePix`** pela receita de ação com código C# acima, colando o conteúdo de `acoes-streamerbot/LivePix.cs`. Antes de compilar, na aba **References** da janela do código, acrescente
+   `System.dll`, `System.Core.dll` e `System.Net.Http.dll` (de `C:\Windows\Microsoft.NET\Framework64\v4.0.30319\`) e `Newtonsoft.Json.dll` (da pasta do Streamer.bot). **Save and Compile** tem que compilar sem erro.
+4. **Timer de 10 segundos.** No menu da esquerda do Streamer.bot, em **Timed Actions** (nas versões novas pode aparecer como **Timers**; **não** fica em Settings), crie um: nome `LivePix a cada 10 s`, intervalo de
+   **10 segundos**, **Repeat** marcado e **Enabled marcado**. **Um timer novo pode ficar desligado**: confira que ele está ligado (sem isso a ação nunca roda sozinha). Depois volte na ação `LivePix`: no quadro
+   **Triggers**, botão direito, *Core > Timed Actions > Timed Action*, e escolha esse timer.
+5. **Conferir o log.** Em até 10 segundos o log do Streamer.bot (os arquivos da pasta `logs` dele) mostra "LivePix: o LivePix aceitou o escopo ..." e "LivePix: conectado. Marquei N doacao(oes) antiga(s) como ja
+   vistas". **A primeira rodada só marca as doações que já existem**: nenhuma doação antiga vira alerta, só as novas.
+6. **Testar (um passo só).** Na aba **Commands**, crie um comando (por exemplo `!lpteste`; deixe só você com permissão) e ligue-o à ação `LivePix`: no quadro **Triggers** dela, botão direito,
+   *Core > Commands > Command Triggered*, e escolha esse comando. Depois **digite `!lpteste` no seu chat** (o jeito mais certo; o **Test Trigger** do gatilho também deve funcionar, mas manda menos informação à
+   ação). Isso manda uma **doação de mentira** ("Fulano de Teste", R$ 10,00, com "teste" no detalhe) direto ao dock e ao overlay, **sem falar com o LivePix**: serve para ver o alerta antes de haver uma doação de
+   verdade. No log aparece "LivePix: doacao de "Fulano de Teste" (10.00 BRL) avisada aos overlays (teste)"; se esta linha não aparece, o código colado na ação é uma versão antiga: cole de novo. Quando terminar,
+   **apague esse comando** (senão qualquer um com permissão no chat dispara alertas falsos). O timer de 10 segundos continua fazendo o trabalho de verdade. Para outros testes, existem dois argumentos (*Core >
+   Arguments > Set Argument*, `acao`, numa ação à parte com *Run Action* da `LivePix` e **Use Arguments** ligado): `ultima` reenvia a doação mais recente de verdade do LivePix (precisa de pelo menos uma doação
+   na sua conta) e `ler` só escreve no log o que a API devolve. **O botão de teste do próprio site do LivePix provavelmente não serve**: ele toca o alerta dele, no widget dele, e não cria uma doação na lista que a
+   API devolve.
+7. **Na tela da live o alerta é do overlay** (o widget do próprio LivePix, escondido, mais a nossa janela, na fila dos alertas das plataformas, com o template nosso publicado no LivePix: `livepix-template/LEIA-ME.md` do projeto do overlay): deixe **desligada a fonte separada do LivePix** no OBS, senão a doação toca duas vezes.
+
+Para tirar o alerta da aba **Tudo**, desmarque **Doação (LivePix)** em **Alertas no chat**.
+
+**O que precisa ficar aberto:** só o **Streamer.bot** (é ele que pergunta ao LivePix a cada 10 segundos) e, para ver o alerta, o **dock** e o **overlay** no OBS. **Nada do LivePix precisa ficar aberto**: nem o site,
+nem o aplicativo, nem a fonte de navegador deles; o site só é usado uma vez, para criar o aplicativo. O PC precisa de internet. A doação fica registrada no LivePix mesmo com tudo fechado. Com o Streamer.bot
+fechado, ela só vira alerta quando você o abrir se tiver **menos de 30 minutos** (`MAX_IDADE_MIN`, no começo do código); as mais antigas só são marcadas como vistas, sem alerta. Com o dock ou o overlay fechado na
+hora, o alerta se perde (a doação continua no LivePix).
+
+**Se não aparecer:** leia o log do Streamer.bot.
+
+- "faltam livepixClientId e livepixClientSecret": as variáveis não existem ou o nome está diferente (precisa ser igual, letra por letra).
+- "recusou o pedido de acesso (401 ... invalid_client)": ID ou segredo errados, ou trocados entre si.
+- "(400 ... scope)": o LivePix não aceitou nenhum dos nomes de permissão que o código tenta (`messages:read`, `messages` e sem permissão; o nome não está na documentação do LivePix). Crie a variável global
+  persistente `livepixScope` com o nome que aparece nas configurações do seu aplicativo. O que funcionar fica guardado em `livepixEscopoCerto` (apague essa variável para tentar tudo de novo).
+- "o LivePix pediu para esperar": limite de chamadas por minuto; aumente o intervalo do timer.
+- `error CS...` ao compilar: falta alguma das References do passo 3.
+- Depois de um erro a ação **espera** (5 minutos se foi o acesso, 1 minuto se foi a consulta) antes de tentar de novo, para não pedir acesso a cada 10 segundos (o LivePix avisa que pedir acesso demais pode custar a
+  conta). Rodar a ação à mão com `acao` = `ultima` ou `ler` ignora a espera.
+- O log diz "avisada aos overlays" e o alerta não aparece: o problema é o dock ou o overlay. O Streamer.bot precisa estar conectado nele (no dock, a bolinha azul > **Streamer.bot** diz "conectado") e, no overlay, o OBS
+  precisa atualizar o cache da fonte.
+
+**Limites:** o LivePix não avisa por conta própria (a API só tem consulta e webhook, e o webhook exige um endereço público), então o alerta chega até 10 segundos depois da doação. Só o nome, o valor e a mensagem
+aparecem (a API não traz vídeo, GIF nem som da doação). Só entram as doações que chegarem com o dock aberto. **Ainda não conferido com uma conta real do LivePix:** o nome da permissão, a ordem das mensagens (o código
+descobre sozinho) e se uma doação sem texto aparece na API. Quem quiser fazer a própria ação: o aviso é um `WebsocketBroadcastJson` com
+`{"event":{"source":"Custom","type":"LivePix"},"data":{"id","username","message","amount"(centavos),"currency","flagged","createdAt","teste"}}`.
 
 ## 4. Preparar o OBS (só para a marcação de momentos)
 
@@ -356,7 +421,7 @@ dock por cima da barra de **Cenas**: eles viram abas do mesmo painel. O dock agu
 
 ## 6. Configurar o dock
 
-Clique na **bolinha de estado** (a verde, amarela ou vermelha, no canto de cima) para abrir as **Configurações**:
+Clique na **bolinha de estado** (a verde, amarela ou vermelha, no canto de cima) para abrir as **Configurações**. **Toda seção abre e fecha** com um clique no título (a seta ▸ ▾): as conexões (**Streamer.bot** e **OBS**) vêm abertas e as outras vêm recolhidas. **Abrir tudo** e **Recolher tudo**, no alto, mexem em todas de uma vez, e o dock lembra como você deixou. As opções de um recurso opcional só aparecem com o interruptor dele ligado. **Verificar configuração**, também no alto, confere tudo o que você ligou (as ações do Streamer.bot e a versão do código delas, as plataformas, o OBS e o microfone) e mostra ✓, ! ou ✕ com o que fazer em cada caso:
 
 | Seção | O que configurar |
 |---|---|
@@ -364,14 +429,15 @@ Clique na **bolinha de estado** (a verde, amarela ou vermelha, no canto de cima)
 | **Streamer.bot** | **Endereço** (`ws://127.0.0.1:8080`) e **Senha** (a do passo 2.3, ou vazia). Clique em **Salvar e reconectar** |
 | **OBS** | **Endereço** (`ws://127.0.0.1:4455`) e **Senha** (a do passo 4, ou vazia). **Salvar e testar** mostra o tempo atual da live |
 | **Marcação de momentos** | **Dar título a cada clipe** e a **pasta** dos arquivos (vazia: a pasta `Clipes` ao lado do dock, ou seja, `%LOCALAPPDATA%\LiveHelm\Clipes` no dock instalado; se escolher outra, use o caminho completo, como `C:\Clipes`) |
-| **Alertas no chat** | A seção **vem recolhida** (clique no título para abrir e fechar; recolhida, mostra quantos alertas aparecem na aba **Tudo**). Marque os tipos de alerta que também devem aparecer na aba **Tudo** e nas abas de cada plataforma (seguidor, sub, resgate de pontos, anúncio, banimento...). A aba **Alertas** mostra todos, sempre. **Voltar ao padrão** desfaz as suas escolhas |
+| **Abas do chat** | Dois interruptores, desligados: **Aba Resgates** (a fila de resgates da Twitch, ao lado de Alertas, com **Cumprir** e **Reembolsar** e um número com os pendentes; precisa da ação `Painel: Controles`) e **Aba AutoMod** (só as mensagens retidas pelo AutoMod, com Permitir e Negar, e o número das que esperam). **Responder** e **Ver perfil** não têm interruptor: estão sempre no menu da mensagem (e o botão ↪ na linha). Responder faz a caixa responder àquela mensagem em qualquer plataforma (com a ação `Painel: Controles`, na Twitch e na Kick a resposta fica ligada à mensagem; sem ela, e no YouTube, que não tem resposta, a mensagem sai com @nome). **Ver perfil** abre um cartão com a foto, os selos, as mensagens da sessão e as punições e, na Twitch (com a ação), a idade da conta, se segue e se é sub, mod ou VIP; **Copiar link do perfil** copia o endereço |
+| **Alertas no chat** | Marque os tipos de alerta que também devem aparecer na aba **Tudo** e nas abas de cada plataforma (seguidor, sub, resgate de pontos, anúncio, banimento...). A aba **Alertas** mostra todos, sempre. **Voltar ao padrão** desfaz as suas escolhas |
 | **Saúde do OBS** | **Mostrar fps, CPU e rede do OBS no alto** (vem ligado, só lê o OBS). Também aparece na lista das bolinhas azuis. Usa a conexão com o OBS da seção acima |
 | **YouTube** | As **regras da categoria** (veja acima) e **Mostrar tags e descrição do YouTube no painel Tags** (vem desligado) |
 | **Painel de Multistream** | **Usar o Painel de Multistream** (vem desligado: os botões mexem na live, então quem os quer liga aqui). Põe o painel Multistream, com **Iniciar lives** e **Parar lives**, na lista das bolinhas azuis para mostrar ou esconder. É independente da Saúde do OBS |
 | **Predefinições de live** | **Usar predefinições de live** (vem desligado). Põe o painel **Predefinições**, em que você guarda um modo (título e categoria do painel Live, as tags da Twitch e, se quiser, a categoria do YouTube) e o aplica com um clique: ele muda título e categoria nas plataformas ativas e as tags da Twitch. Guardar com o mesmo nome atualiza |
 | **Modos do chat (Twitch)** | **Usar os modos do chat** (vem desligado): painel com **Só emotes**, **Modo lento**, **Só seguidores** e **Só inscritos**, num toque, e o tempo do modo lento e de seguidores. Só na Twitch. Precisa da ação `Painel: Controles` |
 | **Clipe da Twitch** | **Mostrar o botão de clipe no painel Momentos** (vem desligado), com a duração (15 a 60 s). O botão leva o símbolo da Twitch, cria o clipe e mostra o link para copiar. Precisa da ação `Painel: Controles` |
-| **Mudo do microfone** | **Mostrar o botão de mudo do microfone** (vem desligado) e a **entrada do microfone no OBS** (use **Listar as entradas do OBS** e escolha a sua). A caixinha aparece sempre no alto, ao lado esquerdo da bolinha azul: verde com o microfone aberto, vermelha no mudo, cinza se o OBS não está conectado. Usa a conexão com o OBS |
+| **Mudo do microfone** | **Mostrar o botão de mudo do microfone** (vem desligado) e a **entrada do microfone no OBS** (use **Listar as entradas do OBS** e escolha a sua). A caixinha aparece sempre no alto, ao lado esquerdo da bolinha azul: verde com o microfone aberto, vermelha no mudo, cinza se o OBS não está conectado. **Avisar quando eu falar com o microfone no mudo** (ligado): com o microfone no mudo, a caixinha pisca entre o vermelho e o âmbar e aparece o letreiro "Você está no mudo!" quando há voz na entrada (o dock assina o medidor de volume do OBS só enquanto está no mudo; o limiar acompanha o ruído da sala). **Testar o aviso (fale por 5 s)** ouve o microfone e diz até onde chegou a sua voz e se o aviso teria disparado, com o microfone aberto ou no mudo. Usa a conexão com o OBS |
 | **Aviso de anúncio (Twitch)** | **Avisar antes de cada anúncio** (vem desligado) e com quantos segundos de antecedência (15, 30, 45 ou 60). **Testar o aviso** mostra o pop-up de mentira, sem falar com a Twitch |
 
 No alto do dock, ao lado do símbolo de cada plataforma, fica o **tempo de live dela** (00:00 com a live desligada) e, junto das plataformas, o **total de espectadores** de todas. O tempo da **Twitch** é o da transmissão principal do OBS (o botão nativo Iniciar transmissão) e, de reserva, o aviso de início da Twitch e o tempo dos destinos do multistream. O de YouTube e Kick é o aviso de início de cada uma e, de reserva, o tempo dos destinos do multistream.
@@ -441,6 +507,9 @@ nas configurações do dock, então prefira a tela de configurações).
 | Momentos: a linha não entra no arquivo | A ação `Painel: Momentos` não existe, não compilou, ou a pasta não pode ser criada. Veja o log do Streamer.bot (pasta `logs`). |
 | Desbanir/liberar não faz nada | A `Painel: Chat` é de uma versão antiga e não tem o verbo `reverter`. Cole [`Painel-Chat.cs`](../acoes-streamerbot/Painel-Chat.cs) de novo. |
 | O dock não aparece no OBS | Veja se o OBS estava fechado ao instalar. Use **Docks > LiveHelm**, ou a instalação manual (seção 5). |
+| O título da live do YouTube virou `%tituloLive%` (ou `%titulo%`) ao mudar a descrição, as tags ou ao abrir o painel Tags | A ação `Painel: YouTube` ainda tem a sub-ação antiga `YouTube > Set Title`, que roda a cada pedido. **Apague essa sub-ação** (deixe só `Execute C# Code`; passo a passo na seção da ação `Painel: YouTube`) e escreva o título certo de novo no painel Live. |
+| A categoria do YouTube não troca ("categoria recusada") | **Se a transmissão já está na categoria pedida (o log diz o número, `id 20` é Gaming), o código versão 4 não reclama mais:** ela só é recusada de verdade quando é outra. O Streamer.bot não diz quais nomes de categoria aceita, e já recusou até "Gaming" no teste do dono (a lista de categorias dele parece vazia: a transmissão mostra o número da categoria, `CategoryName` vem vazio). Para outras categorias (por exemplo People & Blogs) o jeito seguro é trocar à mão no YouTube Studio; também vale **reconectar a conta do YouTube** em `Platforms > YouTube > Accounts` e reiniciar o Streamer.bot (não confirmado). O código **versão 3** de `Painel-YouTube.cs` tenta o nome em inglês, depois em português (como o YouTube Studio mostra) e o número da categoria, espera um instante depois de trocar o título e tenta uma segunda vez. Se ainda assim o YouTube recusar, o log do Streamer.bot (pasta `logs`) diz o que foi tentado ("tentei: …") e a categoria que a transmissão mostra: mande essa linha. A live precisa existir e estar monitorada (criada ou no ar); com a live desligada nada muda e o dock guarda o pedido para a hora em que ela abrir. |
+| Tags ou descrição do YouTube não mudam | Confira se a live do YouTube está criada ou no ar e monitorada (sem ela o dock guarda o pedido e aplica quando abrir) e se o código de `Painel-YouTube.cs` é o da versão 4 (**Verificar configuração** avisa). Com a versão 3 ou 4, depois de aplicar a ação relê a transmissão: se ela ainda mostra o valor antigo, o dock avisa "enviadas, mas a transmissão ainda mostra…: confira no YouTube Studio" (a cópia que o Streamer.bot guarda pode estar velha, então olhe o Studio). O log traz "depois de aplicar, a transmissão mostra…". Aplique as tags e a descrição **depois** de confirmar o título e a categoria. |
 | Ao mudar a categoria ela "fica diferente" | A plataforma não achou uma categoria com esse nome. Digite o nome como ele aparece na plataforma. |
 
 Quando algo não bate, o **log do Streamer.bot** (pasta `logs`, ao lado do executável) é o melhor lugar para olhar: toda ação que o

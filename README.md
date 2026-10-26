@@ -58,7 +58,19 @@ no seu computador: não há servidor, conta, cadastro nem chave de API.
   com um clique, sem redigitar tudo.
 - **Modos do chat da Twitch** (desligados por padrão): só emotes, modo lento, só seguidores e só inscritos num toque, sem ir ao site da Twitch. O Streamer.bot
   só tem esses controles na Twitch; a Kick e o YouTube não têm.
-- **Mudo do microfone** (desligado por padrão): uma caixinha sempre visível no alto, ao lado esquerdo da bolinha azul (verde com o microfone aberto, vermelha no mudo), que coloca no mudo (e tira) o microfone que você escolheu nas configurações, pelo
+- **Verificar configuração:** um botão nas configurações que confere tudo o que você ligou (ações do Streamer.bot com o nome exato e a versão do código delas, plataformas,
+  OBS e microfone) e mostra ✓, ! ou ✕ com o que fazer.
+- **Aba Resgates** (desligada por padrão): a fila de resgates de pontos da Twitch, ao lado de Alertas, com **Cumprir** e **Reembolsar** e o número dos pendentes. Só entram os
+  resgates que chegarem com o dock aberto; a Kick não tem cumprir nem reembolsar no Streamer.bot.
+- **Aba AutoMod** (desligada por padrão): só as mensagens que o AutoMod da Twitch reteve, com Permitir e Negar.
+- **Doações do LivePix:** cada doação vira um alerta ("Fulano apoiou", valor e mensagem), com o **fundo azul do LivePix** e o símbolo do logo dele, em **Alertas** e em **Tudo** (para tirá-lo de
+  Tudo, desmarque **Doação (LivePix)** nas configurações de alertas). Uma ação do Streamer.bot chamada `LivePix` consulta a API do LivePix a cada 10 segundos e avisa o dock (o overlay não usa esta ação: ele usa o widget do próprio LivePix, com um template nosso); o código
+  está pronto em [`acoes-streamerbot/LivePix.cs`](acoes-streamerbot/LivePix.cs) e o passo a passo (criar o aplicativo no LivePix, as chaves, a ação e o timer) em [docs/INSTRUCOES.md](docs/INSTRUCOES.md).
+  Só entram as doações que chegarem com o dock aberto.
+- **Responder e perfil** (sempre disponíveis, sem interruptor): responda a uma mensagem do chat nas três plataformas (botão ↪ da linha ou menu da mensagem). Na Twitch e na Kick a
+  resposta fica ligada à mensagem (com a ação `Painel: Controles`; sem ela sai com @nome) e, no YouTube, que não tem resposta, sai com @nome. **Ver perfil** mostra foto, selos, mensagens
+  e punições da sessão e, na Twitch, a idade da conta, se segue e se é sub, mod ou VIP, com o link do perfil para copiar.
+- **Mudo do microfone** (desligado por padrão): uma caixinha sempre visível no alto, ao lado esquerdo da bolinha azul (verde com o microfone aberto, vermelha no mudo), que coloca no mudo (e tira) o microfone que você escolheu nas configurações (e **pisca, com um letreiro "Você está no mudo!", quando você fala com ele no mudo**; um botão de teste mostra até onde chega a sua voz), pelo
   OBS, em vez de procurá-lo no mixer.
 - **Instala em dois cliques** (Windows) e **não precisa de nada instalado** além do OBS e do Streamer.bot.
 - **Leve e à prova de erro:** é só uma página; se algo falhar, o OBS continua funcionando.
@@ -142,7 +154,7 @@ Um campo de título, um de categoria e o botão **Confirmar**, que atualiza toda
   inglês) e aperte **Enter** para pegar o primeiro, ou navegue pelas abas. O 👋 troca o tom de pele. Só aparecem os emojis que o seu
   sistema sabe desenhar.
 - **YouTube:** o título é ajustado às regras dele (`->` vira `→`, `<` e `>` saem, até 100 caracteres) e o resultado diz o que mudou.
-  Com o código novo da ação `Painel: YouTube`, o painel mostra se o YouTube aceitou ou o motivo de não ter aceitado. A categoria do
+  Com o código novo da ação `Painel: YouTube` (e **só ele** na ação: a sub-ação antiga `YouTube > Set Title` precisa ser apagada, senão o título da live vira `%tituloLive%` em todo pedido sem título), o painel mostra se o YouTube aceitou ou o motivo de não ter aceitado. A categoria do
   YouTube é uma da lista fixa dele e **muda sozinha conforme a live**: em Configurações > YouTube, cada linha tem as palavras que identificam um tipo de live
   (Just Chatting, Software/Tecnologia/Ciência, Música, Esportes...) e a categoria do YouTube, **escolhida numa lista** (nada de digitar o nome). O dock
   compara a categoria digitada no painel Live (ou, sem ela, o título) com as palavras; qualquer outro nome digitado é um jogo e vai para **Gaming**, sempre
@@ -404,7 +416,7 @@ src/obs.js               Tempo da live pelo obs-websocket v5
 src/configuracoes.js     Configuração salva e tema
 src/config.js            Endereços e senhas de partida
 src/punicoes.js, texto.js, plataformas.js, armazenamento.js, Icones.jsx, Listas.jsx, style.css
-acoes-streamerbot/       Código C# das ações (para colar no Streamer.bot)
+acoes-streamerbot/       Código C# das ações, inclusive a do LivePix (para colar no Streamer.bot)
 instalador/              Instalador (C#, .NET Framework 4.8): leva o dock dentro e o registra no OBS
 tests/                   Testes (node --test)
 docs/INSTRUCOES.md       Passo a passo de instalação e configuração

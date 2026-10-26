@@ -74,9 +74,17 @@ test('o resumo diz o que a predefinição faz, numa linha', () => {
 test('a resposta da ação Painel: Controles: só a do pedido, com ok, erro e o link do clipe', () => {
   const resposta = (valor, status = 'ok') => ({ status, variables: { painelControles: { name: 'painelControles', value: valor } } });
   const json = o => JSON.stringify(o);
-  assert.deepEqual(respostaDosControles(resposta(json({ pedido: 'p1', ok: true, erro: '', url: 'https://clips.twitch.tv/X' })), 'p1'), { ok: true, erro: '', url: 'https://clips.twitch.tv/X' });
-  assert.deepEqual(respostaDosControles(resposta(json({ pedido: 'p1', ok: false, erro: 'sem live' })), 'p1'), { ok: false, erro: 'sem live', url: '' });
+  assert.deepEqual(respostaDosControles(resposta(json({ pedido: 'p1', ok: true, erro: '', url: 'https://clips.twitch.tv/X' })), 'p1'), { ok: true, erro: '', url: 'https://clips.twitch.tv/X', versao: 1, perfil: null });
+  assert.deepEqual(respostaDosControles(resposta(json({ pedido: 'p1', ok: false, erro: 'sem live' })), 'p1'), { ok: false, erro: 'sem live', url: '', versao: 1, perfil: null });
   assert.equal(respostaDosControles(resposta(json({ pedido: 'outro', ok: true })), 'p1'), null);
   assert.equal(respostaDosControles(resposta('não é json'), 'p1'), null);
   assert.equal(respostaDosControles({ status: 'error' }, 'p1'), null);
+});
+
+test('a resposta de Painel: Controles traz a versão do código e o perfil (objeto) de quem escreve', () => {
+  const resposta = valor => ({ status: 'ok', variables: { painelControles: { name: 'painelControles', value: JSON.stringify(valor) } } });
+  const r = respostaDosControles(resposta({ pedido: 'p2', ok: true, versao: 2, perfil: { nome: 'Maria', seguindo: true } }), 'p2');
+  assert.equal(r.versao, 2);
+  assert.deepEqual(r.perfil, { nome: 'Maria', seguindo: true });
+  assert.equal(respostaDosControles(resposta({ pedido: 'p3', ok: true, perfil: 'texto' }), 'p3').perfil, null);
 });

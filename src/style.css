@@ -554,3 +554,63 @@ select:focus { border-color: var(--acento); }
 .youtube-info-titulo { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 13px; }
 .youtube-info-rodape { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .youtube-info textarea { min-height: 70px; font: inherit; font-size: 13px; line-height: 1.4; }
+
+/* Configurações: abrir e recolher todas as seções, à direita do título. */
+.config-todas { display: flex; gap: 10px; margin-left: auto; font-size: 12px; }
+
+/* Aba Resgates (FilaDeResgates.jsx): o resgate resolvido fica apagado. */
+.linha-fila-cumprido, .linha-fila-reembolsado, .linha-fila-automatico, .linha-fila-semid { opacity: 0.6; }
+.retida-erro { color: var(--erro); }
+.aba .contador { margin-left: 2px; }
+
+/* Doação do LivePix (alerta nas abas Alertas e Tudo): o fundo azul do LivePix a destaca dos outros alertas, como o resgate de pontos. */
+.linha-livepix, .linha-livepix:hover { background: color-mix(in srgb, var(--cor-plataforma) 26%, transparent); color: var(--texto); }
+
+/* Responder a uma mensagem (ChatPanel.jsx): a faixa em cima da caixa de envio. */
+.respondendo { display: flex; align-items: center; gap: 8px; margin: 0 8px; padding: 4px 8px; border: 1px solid var(--borda-forte); border-left: 3px solid var(--acento); border-radius: 8px; background: var(--elevado); font-size: 12px; color: var(--suave); }
+.respondendo .icone { flex-shrink: 0; color: var(--acento-claro); }
+.respondendo-texto { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.respondendo-texto b { color: var(--texto); }
+.respondendo button { border: 0; background: transparent; color: var(--suave); padding: 0 2px; }
+
+/* Cartão de perfil de quem escreve (PerfilCard.jsx): aparece por cima da lista do chat. */
+#painel-chat { position: relative; }
+.perfil-card { position: absolute; z-index: 12; left: 8px; right: 8px; top: 42px; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--borda-forte); border-top: 3px solid var(--cor-plataforma, var(--acento)); border-radius: 10px; background: var(--elevado); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.65); }
+.perfil-topo { display: flex; align-items: flex-start; gap: 10px; }
+.perfil-foto { width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; object-fit: cover; background: var(--campo); }
+.perfil-foto-vazia { display: flex; align-items: center; justify-content: center; color: var(--cor-plataforma, var(--suave)); }
+.perfil-nome { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; font-size: 14px; }
+.perfil-plataforma { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--cor-plataforma, var(--suave)); }
+.perfil-selos { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.perfil-papel { padding: 0 6px; border: 1px solid var(--borda-forte); border-radius: 999px; font-size: 11px; line-height: 16px; color: var(--texto); }
+.perfil-fechar { border: 0; background: transparent; color: var(--suave); padding: 2px 4px; }
+.perfil-fatos { display: flex; flex-direction: column; gap: 3px; margin: 0; padding: 0 0 0 16px; font-size: 12.5px; }
+.perfil-castigo { color: var(--erro); }
+.perfil-descricao { color: var(--suave); font-style: italic; overflow-wrap: anywhere; }
+.perfil-botoes { display: flex; flex-wrap: wrap; gap: 6px; }
+.perfil-botoes button { height: 28px; padding: 0 10px; border: 1px solid var(--borda-forte); border-radius: 8px; background: var(--campo); font-size: 12px; }
+.perfil-botoes button:hover:not(:disabled) { background: var(--elevado-sobre); }
+
+/* Voz com o microfone no mudo: a caixinha pisca entre o vermelho e o âmbar. */
+.botao-mic.mic-falando { animation: micFalando 0.7s steps(1, end) infinite; }
+@keyframes micFalando {
+    0%, 100% { background: #e5484d; border-color: #e5484d; color: #fff; }
+    50% { background: #ffc94a; border-color: #ffc94a; color: #1a1204; }
+}
+
+/* Verificar configuração (Configuracoes.jsx): o botão no alto e a lista de ✓, ! e ✕ com o que fazer. */
+.config-verificar { display: flex; flex-direction: column; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--borda); }
+.config-verificar button.primario { align-self: flex-start; }
+.verificacao { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: 12.5px; }
+.verificacao li { display: flex; flex-direction: column; gap: 1px; }
+.verificacao li.nivel-0 { color: var(--ok); }
+.verificacao li.nivel-1 { color: var(--aviso); }
+.verificacao li.nivel-2 { color: var(--erro); }
+.verificacao-ajuda { color: var(--suave); }
+
+/* Com as abas Resgates e AutoMod ligadas, as abas ficam mais compactas para caberem em uma linha em docks estreitos. */
+.abas-compactas { gap: 0; padding: 6px 6px; }
+.abas-compactas .aba { padding: 4px 6px; gap: 4px; font-size: 12px; }
+
+/* O letreiro que acompanha a caixinha do microfone quando há voz no mudo: não ocupa espaço (fica por cima), então nada se mexe embaixo. */
+.mic-aviso { position: absolute; z-index: 30; top: 34px; right: 8px; padding: 3px 9px; border-radius: 6px; background: #ffc94a; color: #1a1204; font-size: 12px; font-weight: 800; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5); pointer-events: none; }

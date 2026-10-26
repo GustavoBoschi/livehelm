@@ -5,14 +5,35 @@ import { useState } from 'react';
 import { ACENTOS, FUNDOS, aplicarTema, gravarSecao, lerConfig, pastaPadraoDosClipes } from './configuracoes.js';
 import { reconectarStreamerbot } from './streamerbot.js';
 import { tempoDoOBS, formatarTempo } from './obs.js';
-import { listarEntradasDoObs } from './obsSaude.js';
+import { listarEntradasDoObs, testarAvisoDoMic } from './obsSaude.js';
+import { textoDoTesteDoMic } from './vozNoMudo.js';
 import { ler, gravar } from './armazenamento.js';
 import { CATEGORIAS_DO_YOUTUBE, REGRAS_PADRAO_DO_YOUTUBE } from './titulos.js';
+import { verificarConfiguracao } from './verificar.js';
 import { testarAvisoDeAnuncio } from './AvisoAnuncio.jsx';
 import { NOME_DA_ACAO_DE_ANUNCIO, canalLido } from './acoes.js';
 import { ALERTAS_NO_CHAT_GERAL, TIPOS_DE_ALERTA, apareceNoChatGeral } from './alertas.js';
 
-export default function Configuracoes({ conectado, recusa, onVoltar }) {
+// Ids das seções, na ordem da tela (abrir e recolher todas).
+const SECOES = ['aparencia', 'streamerbot', 'obs', 'momentos', 'alertas', 'chat', 'youtube', 'presets', 'modos', 'clipe', 'mic', 'saude', 'multistream', 'anuncio'];
+
+// Uma seção das configurações: o título é um botão que abre e fecha. `extra` fica ao lado do título sempre (o "conectado" do Streamer.bot).
+function Secao({ id, titulo, extra, padrao = false, abertas, alternar, children }) {
+  const aberta = abertas[id] ?? padrao;
+  return (
+    <div className="config-secao" id={`config-secao-${id}`}>
+      <h3>
+        <button type="button" id={`config-${id}-recolher`} className="config-recolher" aria-expanded={aberta} onClick={() => alternar(id, padrao)}>
+          <span className="seta">{aberta ? '▾' : '▸'}</span> {titulo}
+        </button>
+        {extra}
+      </h3>
+      {aberta && children}
+    </div>
+  );
+}
+
+export default function Configuracoes({ conectado, recusa, ativas, onVoltar }) {
   const [config, setConfig] = useState(lerConfig);
   const [sb, setSb] = useState(config.streamerbot);
   const [obs, setObs] = useState(config.obs);
@@ -21,7 +42,12 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
   const [entradas, setEntradas] = useState(null);    // as entradas do OBS listadas para escolher o microfone ({ nome, tipo }); null = ainda não listadas
   const [listando, setListando] = useState(false);
   const [erroEntradas, setErroEntradas] = useState('');
-  const [alertasAbertos, setAlertasAbertos] = useState(() => ler('configAlertasAberto', false)); // a lista de alertas é comprida: vem recolhida
+  const [verificacao, setVerificacao] = useState(null); // as linhas da "Verificar configuração" (verificacao.js); null = ainda não rodou
+  const [verificando, setVerificando] = useState(false);
+  const [testeMic, setTesteMic] = useState(null);    // { nivel, texto } do teste do aviso de voz no mudo
+  const [testandoMic, setTestandoMic] = useState(false);
+  // Quais seções estão abertas (id -> true/false); o que não está aqui segue o padrão de cada seção (só as conexões vêm abertas). Fica lembrado.
+  const [abertas, setAbertas] = useState(() => ({ ...(ler('configAlertasAberto', false) ? { alertas: true } : {}), ...ler('configSecoes', {}) }));
   const padraoDaPasta = pastaPadraoDosClipes();
   const canal = canalLido();
   const semPontosDeCanal = canal && canal.afiliado === false && canal.parceiro === false; // sem afiliação não existem resgates de pontos do canal
@@ -85,12 +111,29 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
     else setErroEntradas(r.erro);
     setListando(false);
   }
-  function alternarAlertas() {
-    gravar('configAlertasAberto', !alertasAbertos);
-    setAlertasAbertos(!alertasAbertos);
+  function guardarAbertas(novas) {
+    gravar('configSecoes', novas);
+    setAbertas(novas);
   }
+  const alternarSecao = (id, padrao) => guardarAbertas({ ...abertas, [id]: !(abertas[id] ?? padrao) });
+  const abrirTodas = aberto => guardarAbertas(Object.fromEntries(SECOES.map(s => [s, aberto])));
   const todosOsAlertas = TIPOS_DE_ALERTA.flatMap(g => g.itens);
   const alertasNaAbaTudo = todosOsAlertas.filter(i => apareceNoChatGeral(i.id, config.alertasNoChat.escolhas)).length;
+  // Confere tudo o que está ligado (ações do Streamer.bot e a versão do código delas, plataformas, OBS e microfone) e mostra ✓, ! e ✕ com o que fazer.
+  async function verificar() {
+    setVerificando(true);
+    setVerificacao(await verificarConfiguracao({ config: lerConfig(), conectado, recusa, ativas: ativas || { twitch: true, kick: true, youtube: true } }));
+    setVerificando(false);
+  }
+  // Ouve o medidor do microfone por 5 s e diz até onde chegou a sua voz e se o aviso de falar no mudo teria disparado.
+  async function testarAviso() {
+    const entrada = config.mic.entrada.trim();
+    setTestandoMic(true);
+    setTesteMic(null);
+    const r = await testarAvisoDoMic({ ...salvarObs(), mic: entrada }, 5000);
+    setTesteMic(textoDoTesteDoMic(r, entrada));
+    setTestandoMic(false);
+  }
   function mudarMultistream(parte) {
     const multistream = { ...config.multistream, ...parte };
     gravarSecao('multistream', multistream);
@@ -117,6 +160,7 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
     setTestando(false);
   }
 
+  const propriedades = { abertas, alternar: alternarSecao };
   const estadoSb = recusa ? `recusou a conexão (${recusa})` : conectado ? 'conectado' : 'desconectado';
   const placar = ['✓', '!', '✕'];
 
@@ -125,10 +169,27 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
       <div className="config-topo">
         <button type="button" className="link" id="config-voltar" onClick={onVoltar}>← Voltar</button>
         <span className="titulo-painel">Configurações</span>
+        <span className="config-todas">
+          <button type="button" className="link" id="config-abrir-todas" onClick={() => abrirTodas(true)}>Abrir tudo</button>
+          <button type="button" className="link" id="config-recolher-todas" onClick={() => abrirTodas(false)}>Recolher tudo</button>
+        </span>
       </div>
 
-      <div className="config-secao">
-        <h3>Aparência</h3>
+      <div className="config-verificar">
+        <button type="button" id="config-verificar" className="primario" disabled={verificando} onClick={verificar}>{verificando ? 'Verificando…' : 'Verificar configuração'}</button>
+        {verificacao && (
+          <ul className="verificacao" id="verificacao-lista">
+            {verificacao.map(l => (
+              <li key={l.id} className={`nivel-${l.nivel}`}>
+                <b>{placar[l.nivel]}</b> {l.texto}
+                {l.ajuda && <span className="verificacao-ajuda">{l.ajuda}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <Secao id="aparencia" titulo="Aparência" {...propriedades}>
         <div className="rotulo">Cor de destaque</div>
         <div className="amostras" role="group" aria-label="Cor de destaque">
           {ACENTOS.map(a => (
@@ -145,29 +206,26 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
                     onClick={() => mudarTema({ fundo: nome })}>{nome}</button>
           ))}
         </div>
-      </div>
+      </Secao>
 
-      <div className="config-secao">
-        <h3>Streamer.bot <span className={`estado-texto estado-texto-${conectado && !recusa ? 'ok' : 'erro'}`}>{estadoSb}</span></h3>
+      <Secao id="streamerbot" titulo="Streamer.bot" padrao extra={<span className={`estado-texto estado-texto-${conectado && !recusa ? 'ok' : 'erro'}`}>{estadoSb}</span>} {...propriedades}>
         <label className="rotulo" htmlFor="config-sb-url">Endereço do servidor WebSocket</label>
         <input id="config-sb-url" type="text" value={sb.url} spellCheck={false} placeholder="ws://127.0.0.1:8080" onChange={e => setSb({ ...sb, url: e.target.value })} />
         <label className="rotulo" htmlFor="config-sb-senha">Senha</label>
         <input id="config-sb-senha" type="password" value={sb.senha} autoComplete="off" onChange={e => setSb({ ...sb, senha: e.target.value })} />
         <button type="button" id="config-sb-salvar" className="primario" onClick={salvarStreamerbot}>Salvar e reconectar</button>
-      </div>
+      </Secao>
 
-      <div className="config-secao">
-        <h3>OBS</h3>
+      <Secao id="obs" titulo="OBS" padrao {...propriedades}>
         <label className="rotulo" htmlFor="config-obs-url">Endereço</label>
         <input id="config-obs-url" type="text" value={obs.url} spellCheck={false} placeholder="ws://127.0.0.1:4455" onChange={e => setObs({ ...obs, url: e.target.value })} />
         <label className="rotulo" htmlFor="config-obs-senha">Senha</label>
         <input id="config-obs-senha" type="password" value={obs.senha} autoComplete="off" onChange={e => setObs({ ...obs, senha: e.target.value })} />
         <button type="button" id="config-obs-testar" className="primario" disabled={testando} onClick={testarObs}>{testando ? 'Testando…' : 'Salvar e testar'}</button>
         {testeObs && <p className={`resultado-teste nivel-${testeObs.nivel}`} id="config-obs-resultado">{placar[testeObs.nivel]} {testeObs.texto}</p>}
-      </div>
+      </Secao>
 
-      <div className="config-secao">
-        <h3>Marcação de momentos</h3>
+      <Secao id="momentos" titulo="Marcação de momentos" {...propriedades}>
         <label className="opcao-linha" htmlFor="config-titulo-clipe">
           <input id="config-titulo-clipe" type="checkbox" checked={config.momentos.tituloDeClipe} onChange={e => mudarMomentos({ tituloDeClipe: e.target.checked })} />
           Dar título a cada clipe
@@ -175,16 +233,9 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
         <label className="rotulo" htmlFor="config-pasta">Pasta dos arquivos de clipes</label>
         <input id="config-pasta" type="text" value={config.momentos.pasta} spellCheck={false} placeholder={padraoDaPasta || 'Documentos\\LiveHelm\\Clipes'}
                onChange={e => mudarMomentos({ pasta: e.target.value })} />
-      </div>
+      </Secao>
 
-      <div className="config-secao" id="config-alertas">
-        <h3>
-          <button type="button" id="config-alertas-recolher" className="config-recolher" aria-expanded={alertasAbertos} onClick={alternarAlertas}>
-            <span className="seta">{alertasAbertos ? '▾' : '▸'}</span> Alertas no chat
-          </button>
-          {!alertasAbertos && <span className="resumo" id="config-alertas-resumo">{alertasNaAbaTudo} de {todosOsAlertas.length} na aba Tudo</span>}
-        </h3>
-        {alertasAbertos && <>
+      <Secao id="alertas" titulo="Alertas no chat" {...propriedades}>
         <p className="dica">A aba <b>Alertas</b> mostra todos os alertas, sempre. Marque os que também devem aparecer na aba <b>Tudo</b> e nas abas de cada plataforma.</p>
         {semPontosDeCanal && <p className="dica" id="aviso-sem-afiliacao">O seu canal da Twitch ainda não é afiliado nem parceiro: a Twitch só libera os pontos do canal (e por isso os resgates e os alertas deles) para afiliados e parceiros.</p>}
         {TIPOS_DE_ALERTA.map(g => (
@@ -199,11 +250,20 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
           </div>
         ))}
         <button type="button" id="config-alertas-padrao" className="link" onClick={voltarAoPadraoDosAlertas}>Voltar ao padrão</button>
-        </>}
-      </div>
+      </Secao>
 
-      <div className="config-secao">
-        <h3>YouTube</h3>
+      <Secao id="chat" titulo="Abas do chat" {...propriedades}>
+        <label className="opcao-linha" htmlFor="config-chat-resgates">
+          <input id="config-chat-resgates" type="checkbox" checked={config.chat.resgates} onChange={e => mudarSecao('chat', { resgates: e.target.checked })} />
+          Aba Resgates (fila de resgates da Twitch)
+        </label>
+        <label className="opcao-linha" htmlFor="config-chat-automod">
+          <input id="config-chat-automod" type="checkbox" checked={config.chat.automod} onChange={e => mudarSecao('chat', { automod: e.target.checked })} />
+          Aba AutoMod (mensagens retidas)
+        </label>
+      </Secao>
+
+      <Secao id="youtube" titulo="YouTube" {...propriedades}>
         <span className="rotulo">Trocar a categoria conforme a live</span>
         <div className="regras-youtube" id="regras-youtube">
           {config.youtube.regras.map((r, i) => (
@@ -230,18 +290,16 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
           <input id="config-youtube-info-ligado" type="checkbox" checked={config.youtubeInfo.ligado} onChange={e => mudarSecao('youtubeInfo', { ligado: e.target.checked })} />
           Mostrar tags e descrição do YouTube no painel Tags
         </label>
-      </div>
+      </Secao>
 
-      <div className="config-secao">
-        <h3>Predefinições de live</h3>
+      <Secao id="presets" titulo="Predefinições de live" {...propriedades}>
         <label className="opcao-linha" htmlFor="config-presets-ligado">
           <input id="config-presets-ligado" type="checkbox" checked={config.presets.ligado} onChange={e => mudarSecao('presets', { ligado: e.target.checked })} />
           Usar predefinições de live
         </label>
-      </div>
+      </Secao>
 
-      <div className="config-secao">
-        <h3>Modos do chat (Twitch)</h3>
+      <Secao id="modos" titulo="Modos do chat (Twitch)" {...propriedades}>
         <label className="opcao-linha" htmlFor="config-modos-ligado">
           <input id="config-modos-ligado" type="checkbox" checked={config.modosDoChat.ligado} onChange={e => mudarSecao('modosDoChat', { ligado: e.target.checked })} />
           Usar os modos do chat
@@ -257,10 +315,9 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
           {[[0, 'qualquer tempo (todos os seguidores)'], [10, '10 minutos'], [30, '30 minutos'], [60, '1 hora'], [1440, '1 dia'], [10080, '1 semana'], [43200, '1 mês']].map(([m, t]) => <option key={m} value={m}>{t}</option>)}
         </select>
         </>}
-      </div>
+      </Secao>
 
-      <div className="config-secao">
-        <h3>Clipe da Twitch</h3>
+      <Secao id="clipe" titulo="Clipe da Twitch" {...propriedades}>
         <label className="opcao-linha" htmlFor="config-clipe-ligado">
           <input id="config-clipe-ligado" type="checkbox" checked={config.clipe.ligado} onChange={e => mudarSecao('clipe', { ligado: e.target.checked })} />
           Mostrar o botão de clipe no painel Momentos
@@ -271,10 +328,9 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
           {[15, 30, 45, 60].map(s => <option key={s} value={s}>{s} segundos</option>)}
         </select>
         </>}
-      </div>
+      </Secao>
 
-      <div className="config-secao">
-        <h3>Mudo do microfone</h3>
+      <Secao id="mic" titulo="Mudo do microfone" {...propriedades}>
         <label className="opcao-linha" htmlFor="config-mic-ligado">
           <input id="config-mic-ligado" type="checkbox" checked={config.mic.ligado} onChange={e => mudarSecao('mic', { ligado: e.target.checked })} />
           Mostrar o botão de mudo do microfone
@@ -293,28 +349,33 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
         )}
         {entradas && entradas.length === 0 && <p className="aviso">O OBS não tem nenhuma entrada de áudio.</p>}
         {erroEntradas && <p className="resultado-teste nivel-2">✕ {erroEntradas}</p>}
+        <label className="opcao-linha" htmlFor="config-mic-aviso">
+          <input id="config-mic-aviso" type="checkbox" checked={config.mic.avisoNoMudo} onChange={e => mudarSecao('mic', { avisoNoMudo: e.target.checked })} />
+          Avisar quando eu falar com o microfone no mudo
+        </label>
+        <div className="linha-botoes">
+          <button type="button" id="config-mic-testar" onClick={testarAviso} disabled={testandoMic || !config.mic.entrada.trim()}>{testandoMic ? 'Ouvindo… fale agora' : 'Testar o aviso (fale por 5 s)'}</button>
+        </div>
+        {testeMic && <p className={`resultado-teste nivel-${testeMic.nivel}`} id="resultado-teste-mic">{placar[testeMic.nivel]} {testeMic.texto}</p>}
         {!config.mic.entrada.trim() && <p className="aviso">Escolha a entrada do microfone para o botão aparecer.</p>}
         </>}
-      </div>
+      </Secao>
 
-      <div className="config-secao">
-        <h3>Saúde do OBS</h3>
+      <Secao id="saude" titulo="Saúde do OBS" {...propriedades}>
         <label className="opcao-linha" htmlFor="config-saude-ligada">
           <input id="config-saude-ligada" type="checkbox" checked={config.saude.ligada} onChange={e => mudarSaude({ ligada: e.target.checked })} />
           Mostrar fps, CPU e rede do OBS no alto
         </label>
-      </div>
+      </Secao>
 
-      <div className="config-secao">
-        <h3>Painel de Multistream</h3>
+      <Secao id="multistream" titulo="Painel de Multistream" {...propriedades}>
         <label className="opcao-linha" htmlFor="config-multistream-ligado">
           <input id="config-multistream-ligado" type="checkbox" checked={config.multistream.ligado} onChange={e => mudarMultistream({ ligado: e.target.checked })} />
           Usar o Painel de Multistream
         </label>
-      </div>
+      </Secao>
 
-      <div className="config-secao">
-        <h3>Aviso de anúncio (Twitch)</h3>
+      <Secao id="anuncio" titulo="Aviso de anúncio (Twitch)" {...propriedades}>
         <label className="opcao-linha" htmlFor="config-anuncio-ligado">
           <input id="config-anuncio-ligado" type="checkbox" checked={config.anuncio.ligado} onChange={e => mudarAnuncio({ ligado: e.target.checked })} />
           Avisar antes de cada anúncio
@@ -325,7 +386,7 @@ export default function Configuracoes({ conectado, recusa, onVoltar }) {
         </select>
         <p className="dica">O botão <b>Adiar 5 min</b> precisa da ação <b>{NOME_DA_ACAO_DE_ANUNCIO}</b> no Streamer.bot (veja as Instruções).</p>
         <button type="button" id="config-anuncio-testar" className="primario" onClick={testarAvisoDeAnuncio}>Testar o aviso</button>
-      </div>
+      </Secao>
     </section>
   );
 }

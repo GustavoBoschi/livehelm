@@ -160,7 +160,8 @@ async function atualizarYoutube(acao, titulo, categoria, forcada = '') {
   const regra = Boolean(forcada.trim()) || escolhida.regra;
   const erro = await executar(acao, { tituloLive: titulo, categoriaLive: categoria, categoriaYoutube, pedido });
   if (erro) return { plataforma, nivel: 2, categoriaOk: true, texto: `recusou o pedido (${curto(erro, 30)})` };
-  const r = await aguardarLeitura(() => pedirStreamerbot({ request: 'GetGlobal', variable: VARIAVEL_DO_YOUTUBE, persisted: false }), pedido, { limiteMs: 3000, interpretar: respostaDoYoutube });
+  // O código novo da ação espera um instante antes da categoria e tenta de novo uma vez, então a resposta pode levar uns 5 s.
+  const r = await aguardarLeitura(() => pedirStreamerbot({ request: 'GetGlobal', variable: VARIAVEL_DO_YOUTUBE, persisted: false }), pedido, { limiteMs: 8000, interpretar: respostaDoYoutube });
   if (!r) {
     return { plataforma, nivel: 1, categoriaOk: true, texto: 'enviado (sem confirmação)' };
   }
@@ -194,7 +195,7 @@ export async function lerInfoDoYoutube() {
   if (!r.ok && r.semTransmissao) return { ok: false, semTransmissao: true, erro: 'sem live do YouTube aberta' };
   if (!r.ok) return { ok: false, erro: curto(r.erro) || 'não aceitou' };
   if (r.versao < 2) return { ok: false, erro: CODIGO_ANTIGO_DO_YOUTUBE };
-  return { ok: true, tags: r.tags, descricao: r.descricao, titulo: r.titulo, categoria: r.categoria };
+  return { ok: true, tags: r.tags, descricao: r.descricao, titulo: r.titulo, categoria: r.categoria, categoriaId: r.categoriaId };
 }
 
 // Manda o que mudou (info: { tags, trocarTags, descricao, trocarDescricao }, já limpo). Devolve { plataforma, nivel, texto, semTransmissao? }.
@@ -219,6 +220,9 @@ async function enviarInfoDoYoutube(acao, info) {
   if (info.trocarTags && info.tags.length === 0 && !info.trocarDescricao) return { plataforma, nivel: 0, texto: 'tags removidas' };
   const feitas = [info.trocarTags && 'tags', info.trocarDescricao && 'descrição'].filter(Boolean);
   const plural = feitas.length > 1 || feitas[0] === 'tags';
+  // Código versão 3: a ação relê a transmissão depois de aplicar. Se ela ainda mostra o valor antigo, o pedido foi aceito mas não dá para ter certeza (a cópia que o Streamer.bot guarda pode estar velha).
+  const naoConfere = [info.trocarTags && r.tagsConferem === false && 'tags', info.trocarDescricao && r.descricaoConfere === false && 'descrição'].filter(Boolean);
+  if (naoConfere.length) return { plataforma, nivel: 1, texto: `${feitas.join(' e ')} enviada${plural ? 's' : ''}, mas a transmissão ainda mostra ${naoConfere.length > 1 ? 'os valores antigos' : naoConfere[0] === 'tags' ? 'as tags antigas' : 'a descrição antiga'}: confira no YouTube Studio` };
   return { plataforma, nivel: 0, texto: `${feitas.join(' e ')} atualizada${plural ? 's' : ''}` };
 }
 
@@ -332,7 +336,49 @@ async function pedirControle(args) {
   const r = await aguardarLeitura(() => pedirStreamerbot({ request: 'GetGlobal', variable: VARIAVEL_DOS_CONTROLES, persisted: false }), pedido, { limiteMs: 4000, interpretar: respostaDosControles });
   if (!r) return { nivel: 1, texto: 'enviado (sem confirmação)' };
   if (!r.ok) return { nivel: 2, texto: curto(r.erro) || 'não aceitou' };
-  return { nivel: 0, texto: 'ok', url: r.url };
+  return { nivel: 0, texto: 'ok', url: r.url, versao: r.versao, perfil: r.perfil };
+}
+
+// A ação `Painel: Controles` existe agora? (o ChatPanel não recebe a lista de ações)
+export const temControlesAgora = () => Boolean(achar(ACAO_CONTROLES));
+
+// Cumpre ou reembolsa um resgate de pontos da Twitch que está na fila (aba Resgates). Devolve { nivel, texto }.
+export async function decidirResgate({ rewardId, redemptionId, decisao }) {
+  const r = await pedirControle({ acao: 'resgate', decisao, rewardId, redemptionId });
+  if (r.nivel === 0 && r.versao < 2) return { nivel: 2, texto: 'atualize o código da ação Painel: Controles (Painel-Controles.cs)' };
+  return r.nivel === 0 ? { ...r, texto: decisao === 'cumprir' ? 'cumprido' : 'reembolsado' } : r;
+}
+
+// Responde a uma mensagem do chat: resposta de verdade na Twitch e na Kick; no YouTube, que não tem, a mensagem sai com @nome. Devolve { nivel, texto }.
+export async function responderMensagem({ plataforma, mensagemId, mensagem, usuario }) {
+  const r = await pedirControle({ acao: 'responder', plataforma, mensagemId: String(mensagemId || ''), mensagem, usuario: String(usuario || '') });
+  if (r.nivel === 0 && r.versao < 2) return { nivel: 2, texto: 'atualize o código da ação Painel: Controles (Painel-Controles.cs)' };
+  return r.nivel === 0 ? { ...r, texto: 'resposta enviada' } : r;
+}
+
+// O perfil de quem escreve na Twitch (idade da conta, se segue, se é sub, mod ou VIP...). Devolve { nivel, texto, perfil }.
+export async function perfilDaTwitch(usuarioId) {
+  const r = await pedirControle({ acao: 'perfil_twitch', usuarioId: String(usuarioId || '') });
+  if (r.nivel === 0 && r.versao < 2) return { nivel: 2, texto: 'atualize o código da ação Painel: Controles (Painel-Controles.cs)' };
+  if (r.nivel === 0 && !r.perfil) return { nivel: 2, texto: 'a Twitch não devolveu o perfil' };
+  return r;
+}
+
+// Em que versão está o código de uma ação (Painel: Controles e Painel: YouTube), para a verificação da configuração. Devolve { achou, versao, erro? }: `achou` é
+// falso se a ação não existe ou não respondeu.
+export async function versaoDoCodigoDosControles() {
+  if (!achar(ACAO_CONTROLES)) return { achou: false, versao: 0 };
+  const r = await pedirControle({ acao: 'ping' });
+  return r.nivel === 2 || r.nivel === 1 && !r.versao ? { achou: false, versao: 0, erro: r.texto } : { achou: true, versao: r.versao || 1 };
+}
+export async function versaoDoCodigoDoYoutube() {
+  const acao = achar(ACAO_DA_LIVE.youtube);
+  if (!acao) return { achou: false, versao: 0 };
+  const pedido = pedidoNovo();
+  const erro = await executar(acao, { acao: 'ler', pedido });
+  if (erro) return { achou: false, versao: 0, erro };
+  const r = await aguardarLeitura(() => pedirStreamerbot({ request: 'GetGlobal', variable: VARIAVEL_DO_YOUTUBE, persisted: false }), pedido, { limiteMs: 3000, interpretar: respostaDoYoutube });
+  return r ? { achou: true, versao: r.versao } : { achou: false, versao: 0, erro: 'sem resposta' };
 }
 
 // Os modos do chat da Twitch (o Streamer.bot não tem estes controles na Kick nem no YouTube).

@@ -48,7 +48,7 @@ export default function App() {
   const [ativas, setAtivas] = useState(() => ({ twitch: true, kick: true, youtube: true, ...ler('ativas', {}) }));
   const config = lerConfig(); // relida a cada desenho: ao voltar das configurações já vale o que foi mudado
   const micAtivo = config.mic.ligado && Boolean(config.mic.entrada.trim());
-  const saude = useSaudeDoObs(config.saude.ligada || config.multistream.ligado || micAtivo, config.obs.url, config.obs.senha, micAtivo ? config.mic.entrada.trim() : ''); // a leitura do OBS vale pra linha de saúde, pros botões e pro tempo
+  const saude = useSaudeDoObs(config.saude.ligada || config.multistream.ligado || micAtivo, config.obs.url, config.obs.senha, micAtivo ? config.mic.entrada.trim() : '', micAtivo && config.mic.avisoNoMudo); // a leitura do OBS vale pra linha de saúde, pros botões e pro tempo
   const [lives, setLives] = useState(estadoInicialDasLives); // espectadores e início da live de cada plataforma (lives.js)
   const [agora, setAgora] = useState(Date.now());
   const estadoObsAnterior = useRef(null);
@@ -215,7 +215,7 @@ export default function App() {
       {config.saude.ligada && paineis.saude && <SaudeDoObs saude={saude} />}
       {aviso && <p className="aviso aviso-faixa" id="aviso-conexao">{aviso}</p>}
       <AvisoAnuncio nomesDeAcoes={nomesDeAcoes} />
-      {configAberta ? <Configuracoes conectado={conectado} recusa={recusa} onVoltar={() => setConfigAberta(false)} /> : (
+      {configAberta ? <Configuracoes conectado={conectado} recusa={recusa} ativas={ativas} onVoltar={() => setConfigAberta(false)} /> : (
         <>
           {config.presets.ligado && paineis.predefinicoes && <Predefinicoes ativas={ativas} conectado={conectado} nomesDeAcoes={nomesDeAcoes} />}
           {paineis.live && <LivePanel ativas={ativas} conectado={conectado} nomesDeAcoes={nomesDeAcoes} />}

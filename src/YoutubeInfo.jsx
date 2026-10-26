@@ -18,6 +18,7 @@ export default function YoutubeInfo({ ativas, conectado, nomesDeAcoes }) {
   const [texto, setTexto] = useState('');
   const [descricao, setDescricao] = useState(() => (pendente && pendente.trocarDescricao ? pendente.descricao : ''));
   const [lido, setLido] = useState(null);       // { tags, descricao } que o YouTube tem; null = ainda não lido
+  const [categoriaAtual, setCategoriaAtual] = useState(''); // a categoria que a transmissão tem agora (como o Streamer.bot a vê)
   const [lendo, setLendo] = useState(false);
   const [erroLeitura, setErroLeitura] = useState(null); // { texto, semTransmissao }
   const [enviando, setEnviando] = useState(false);
@@ -38,6 +39,7 @@ export default function YoutubeInfo({ ativas, conectado, nomesDeAcoes }) {
     const r = await lerInfoDoYoutube();
     if (r.ok) {
       setLido({ tags: r.tags, descricao: r.descricao });
+      setCategoriaAtual(r.categoria || '');
       if (sobrescrever || !editado.current) { setTags(r.tags); setDescricao(r.descricao); editado.current = false; }
     } else {
       setErroLeitura({ texto: r.erro, semTransmissao: Boolean(r.semTransmissao) });
@@ -100,6 +102,7 @@ export default function YoutubeInfo({ ativas, conectado, nomesDeAcoes }) {
         {!lendo && tags.length === 0 && lido && <span className="dica">A live está sem tags.</span>}
         <button type="button" className="link" id="botao-reler-youtube" onClick={() => ler(true)} disabled={!podeLer || lendo}>{lendo ? 'Lendo…' : '↻ Ler do YouTube'}</button>
       </div>
+      {categoriaAtual && <p className="dica" id="categoria-atual-youtube">Categoria atual no YouTube: {categoriaAtual}</p>}
       <input id="campo-tags-youtube" type="text" value={texto} placeholder="Adicionar tag (a vírgula separa várias)" spellCheck={false}
              onChange={e => { if (e.target.value.includes(',')) { editado.current = true; setTags(tagsDoYoutube([...tags, e.target.value]).tags); setTexto(''); } else setTexto(e.target.value); }}
              onKeyDown={e => { if (e.key === 'Enter') incluir(); }} />

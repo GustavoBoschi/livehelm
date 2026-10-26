@@ -195,3 +195,29 @@ test('resgate de pontos sem texto não mostra a descrição da recompensa como s
   const r = eventoTwitch('RewardRedemption', { userInput: null, user: { name: 'Ana' }, reward: { title: 'Hidratar', cost: 300, prompt: 'Beba água' } });
   assert.equal(r.alerta.mensagem, '');
 });
+
+import { passaNaAba } from '../src/alertas.js';
+
+test('resgate da Twitch leva os ids do resgate e da recompensa (para cumprir ou reembolsar) e se a recompensa se completa sozinha', () => {
+  const a = converterEventoStreamerbot({ event: { source: 'Twitch', type: 'RewardRedemption' }, data: { id: 'red-1', user: { id: '1', name: 'Ana' }, reward: { id: 'rec-9', title: 'Fale comigo', cost: 100 }, userInput: 'oi' } }).alerta;
+  assert.deepEqual(a.resgate, { id: 'red-1', rewardId: 'rec-9', automatico: false });
+  const b = converterEventoStreamerbot({ event: { source: 'Twitch', type: 'RewardRedemption' }, data: { redemptionId: 'red-2', rewardId: 'rec-8', skipsQueue: true, user: { id: '1', name: 'Ana' }, reward: { title: 'x', cost: 1 } } }).alerta;
+  assert.deepEqual(b.resgate, { id: 'red-2', rewardId: 'rec-8', automatico: true });
+  // sem os ids no evento: vazios (o dock mostra o resgate sem os botões)
+  const c = converterEventoStreamerbot({ event: { source: 'Twitch', type: 'RewardRedemption' }, data: { user: { id: '1', name: 'Ana' }, reward: { title: 'x', cost: 1 } } }).alerta;
+  assert.deepEqual(c.resgate, { id: '', rewardId: '', automatico: false });
+  // a Kick e os alertas de outro tipo não têm o campo
+  assert.equal(converterEventoStreamerbot({ event: { source: 'Kick', type: 'RewardRedemption' }, data: { user: { id: '1', name: 'Ana' }, reward: { title: 'x', cost: 1 } } }).alerta.resgate, undefined);
+});
+
+test('a aba AutoMod mostra só as mensagens retidas e a aba Resgates não mostra linha nenhuma do feed (tem a fila própria)', () => {
+  const retida = { tipo: 'retida', plataforma: 'twitch' };
+  const chat = { tipo: 'chat', plataforma: 'twitch' };
+  const alerta = { tipo: 'alerta', plataforma: 'twitch', evento: 'reward' };
+  assert.equal(passaNaAba(retida, 'automod'), true);
+  assert.equal(passaNaAba(chat, 'automod'), false);
+  assert.equal(passaNaAba(alerta, 'automod'), false);
+  assert.equal(passaNaAba(retida, 'resgates'), false);
+  assert.equal(passaNaAba(chat, 'resgates'), false);
+  assert.equal(passaNaAba(retida, 'tudo'), true);
+});

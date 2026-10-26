@@ -11,6 +11,7 @@
 import { STREAMERBOT_URL, STREAMERBOT_SENHA } from './config.js';
 import { ler } from './armazenamento.js';
 import { sha256Base64 } from './sha256.js';
+import { alertaDoLivePix, dadosDoLivePixNaMensagem } from './livepix.js';
 
 const RECONEXAO_MIN_MS = 1000;
 const RECONEXAO_MAX_MS = 15000;
@@ -35,6 +36,8 @@ const EVENTOS_ASSINADOS = {
     'NewSubscriber', 'NewSponsor', 'MemberMileStone', 'MembershipGift', 'GiftMembershipReceived', 'SuperChat', 'SuperSticker', 'JewelsGifted',
     'PollStarted', 'PollClosed', 'StatisticsUpdated', 'BroadcastStarted', 'BroadcastEnded',
   ],
+  // Avisos personalizados do Streamer.bot (WebsocketBroadcastJson): as doações do LivePix chegam assim (livepix.js). O resto que chega por aqui (o Spotify, por exemplo) o dock ignora.
+  General: ['Custom'],
 };
 
 const texto = v => (v === undefined || v === null ? '' : String(v));
@@ -100,6 +103,13 @@ const tituloDoResgate = d => texto((d.reward && (d.reward.title || d.reward.name
 const custoDoResgate = d => numero(d.reward && d.reward.cost, d.rewardCost, d.cost, d.channelPoints, d.points);
 const detalheDoResgate = d => [tituloDoResgate(d), comUnidade(custoDoResgate(d), 'pontos')].filter(Boolean).join(' · ');
 const tipoDeRecompensaPadrao = d => RECOMPENSAS_PADRAO[d.rewardType] || texto(d.rewardType).replace(/_/g, ' ');
+// Os ids que cumprir ou reembolsar um resgate da Twitch pedem: o do resgate e o da recompensa (o gatilho do Streamer.bot os chama de redemptionId e rewardId; o
+// evento não tem esquema documentado, então há vários candidatos). `automatico`: a recompensa se completa sozinha (skip queue) e não há o que cumprir.
+const resgateDe = d => ({
+  id: texto(d.redemptionId || d.redemption_id || (d.redemption && d.redemption.id) || d.id),
+  rewardId: texto((d.reward && d.reward.id) || d.rewardId || d.reward_id),
+  automatico: [d.skipsQueue, d.skipQueue, d.reward && d.reward.skipsQueue, d.reward && d.reward.skipQueue, d.reward && d.reward.should_redemptions_skip_request_queue].some(v => v === true),
+});
 const NOME_SEM_USUARIO = 'Alguém'; // quando o evento não diz quem resgatou, o alerta aparece assim em vez de sumir
 // O texto que quem resgatou escreveu junto: `userInput` na Twitch (recompensa personalizada), `text` nas recompensas padrão (a mensagem em
 // destaque) e vários candidatos na Kick, que não tem esquema documentado.
@@ -285,6 +295,9 @@ const ehPrimeiraMensagem = data => [data.meta && data.meta.firstMessage, data.me
 // Pura: não mexe em DOM nem em estado.
 export function converterEventoStreamerbot(msg) {
   if (!msg || !msg.event || !msg.event.source) return null;
+  // Doação do LivePix: o aviso da ação `LivePix` do Streamer.bot (General.Custom), que não é de nenhuma das plataformas abaixo.
+  const doLivePix = dadosDoLivePixNaMensagem(msg);
+  if (doLivePix) return alertaDoLivePix(doLivePix);
   const { source, type } = msg.event;
   const data = msg.data || {};
   const plataforma = PLATAFORMA[source];
@@ -398,6 +411,7 @@ export function converterEventoStreamerbot(msg) {
         anuncio: alerta.event === 'upcoming_ad' ? anuncioDe(data) : undefined,
         meta: { origem: 'streamerbot', evento: chave, quando },
         interacao: EVENTOS_DE_INTERACAO.has(chave) ? interacaoDe(type, data) : undefined,
+        resgate: chave === 'Twitch.RewardRedemption' ? resgateDe(data) : undefined,
       },
     };
   }

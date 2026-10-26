@@ -3,6 +3,7 @@
 // nome, então só dá pra consultar o status da primeira delas (os destinos começam juntos, o tempo vale pra todos). Também para tudo.
 import { sha256Base64 } from './sha256.js';
 import { saudeDeAmostras, qualidadeDeQuadros } from './lives.js';
+import { criarDetector, emDb, nivelDaEntrada } from './vozNoMudo.js';
 
 const INTERVALO_MS = 3000;
 const REENVIO_MS = 15000;
@@ -53,11 +54,14 @@ function abrirConexao({ url, senha }, aoFechar, { eventos = 0, aoEvento } = {}) 
     pendentes.set(id, { resolve, reject });
     ws.send(JSON.stringify({ op: 6, d: { requestType, requestId: id, requestData } }));
   });
-  return { pronta, pedir, fechar: () => { try { ws.close(); } catch (_) { /* já fechada */ } } };
+  // Troca os eventos assinados sem reconectar (op 3, Reidentify): o medidor de volume só é assinado enquanto o microfone está no mudo.
+  const reidentificar = novosEventos => { try { ws.send(JSON.stringify({ op: 3, d: { eventSubscriptions: novosEventos } })); } catch (_) { /* conexão caindo */ } };
+  return { pronta, pedir, reidentificar, fechar: () => { try { ws.close(); } catch (_) { /* já fechada */ } } };
 }
 
 const ehTransmissao = o => o && TIPOS_DE_TRANSMISSAO.has(o.outputKind);
-const EVENTOS_DAS_ENTRADAS = 8; // InputMuteStateChanged e os outros eventos das entradas de áudio do OBS
+const EVENTOS_DAS_ENTRADAS = 8;      // InputMuteStateChanged e os outros eventos das entradas de áudio do OBS
+const EVENTO_DO_MEDIDOR = 1 << 16;    // InputVolumeMeters (alto volume: o OBS manda a cada ~50 ms), só assinado com o microfone no mudo
 
 // Lê o OBS a cada INTERVALO_MS e chama aoAtualizar(saude): { conectado, erro?, ativo, ms, fps, cpu, destinos, kbps, perdaPct, congestao,
 // reconectando, renderPct, encoderPct, msPorQuadro, principalAtiva, msPrincipal, msDestinos, micMudo, micErro }. Com `config.mic` (o nome da entrada
@@ -72,6 +76,26 @@ export function observarSaudeDoObs(config, aoAtualizar) {
   let statsAnterior = null;
   let ultima = null; // a última saúde entregue: o evento de mudo a reaproveita
   const entregar = saude => { ultima = saude; aoAtualizar(saude); };
+  // "Falando no mudo": com o microfone no mudo (e o aviso ligado), assina o medidor de volume e avisa quando há voz (vozNoMudo.js).
+  const detector = criarDetector();
+  let medidorAssinado = false;
+  let relogioDoAviso = null;
+  function ajustarMedidor(mudo) {
+    const quer = Boolean(config.mic && config.avisoNoMudo && mudo);
+    if (quer === medidorAssinado || !conexao) return;
+    medidorAssinado = quer;
+    conexao.reidentificar(EVENTOS_DAS_ENTRADAS | (quer ? EVENTO_DO_MEDIDOR : 0));
+    clearInterval(relogioDoAviso);
+    if (quer) {
+      relogioDoAviso = setInterval(() => {
+        if (!detector.falando) return;
+        if (!detector.expirar(Date.now()) && ultima && ultima.conectado) entregar({ ...ultima, falandoNoMudo: false });
+      }, 500);
+    } else {
+      detector.zerar();
+      if (ultima && ultima.falandoNoMudo) entregar({ ...ultima, falandoNoMudo: false });
+    }
+  }
 
   async function ciclo() {
     try {
@@ -98,8 +122,9 @@ export function observarSaudeDoObs(config, aoAtualizar) {
       const quadros = { renderPulados: stats.renderSkippedFrames || 0, renderTotal: stats.renderTotalFrames || 0, encoderPulados: stats.outputSkippedFrames || 0, encoderTotal: stats.outputTotalFrames || 0 };
       const qualidade = qualidadeDeQuadros(statsAnterior, quadros) || { renderPct: 0, encoderPct: 0 };
       statsAnterior = quadros;
+      ajustarMedidor(mic && !mic.erro ? mic.mudo : false);
       entregar({
-        conectado: true, lidoEm: Date.now(), micMudo: mic && !mic.erro ? mic.mudo : null, micErro: mic && mic.erro ? mic.erro : '', renderPct: qualidade.renderPct, encoderPct: qualidade.encoderPct, msPorQuadro: stats.averageFrameRenderTime ?? null, ativo: ativas.length > 0, principalAtiva: Boolean(principal.outputActive), msPrincipal, msDestinos, ms: msPrincipal || msDestinos, destinos: ativas.length,
+        conectado: true, lidoEm: Date.now(), micMudo: mic && !mic.erro ? mic.mudo : null, micErro: mic && mic.erro ? mic.erro : '', falandoNoMudo: Boolean(ultima && ultima.falandoNoMudo && medidorAssinado), renderPct: qualidade.renderPct, encoderPct: qualidade.encoderPct, msPorQuadro: stats.averageFrameRenderTime ?? null, ativo: ativas.length > 0, principalAtiva: Boolean(principal.outputActive), msPrincipal, msDestinos, ms: msPrincipal || msDestinos, destinos: ativas.length,
         fps: stats.activeFps ?? null, cpu: stats.cpuUsage ?? null,
         kbps: saude.kbps, perdaPct: saude.perdaPct, congestao: medido ? medido.outputCongestion ?? null : null,
         reconectando: Boolean((principal && principal.outputReconnecting) || (statusDeDestino && statusDeDestino.outputReconnecting)),
@@ -113,7 +138,12 @@ export function observarSaudeDoObs(config, aoAtualizar) {
     if (parado) return;
     const aoEvento = d => {
       if (d.eventType === 'InputMuteStateChanged' && config.mic && d.eventData && d.eventData.inputName === config.mic && ultima && ultima.conectado) {
-        entregar({ ...ultima, micMudo: Boolean(d.eventData.inputMuted), micErro: '' });
+        const mudo = Boolean(d.eventData.inputMuted);
+        ajustarMedidor(mudo);
+        entregar({ ...ultima, micMudo: mudo, micErro: '', falandoNoMudo: mudo ? Boolean(ultima.falandoNoMudo) : false });
+      } else if (d.eventType === 'InputVolumeMeters' && config.mic && medidorAssinado && ultima && ultima.conectado && ultima.micMudo) {
+        const falando = detector.processar(d.eventData, config.mic, Date.now());
+        if (falando !== Boolean(ultima.falandoNoMudo)) entregar({ ...ultima, falandoNoMudo: falando });
       }
     };
     conexao = abrirConexao(config, () => {
@@ -132,8 +162,51 @@ export function observarSaudeDoObs(config, aoAtualizar) {
   return () => {
     parado = true;
     clearInterval(temporizador);
+    clearInterval(relogioDoAviso);
     if (conexao) conexao.fechar();
   };
+}
+
+// Para "Verificar configuração": o OBS responde? (versão) e, com um microfone escolhido, a entrada existe? Devolve { ok, versao, erro?, micOk? }.
+export async function verificarObs(config) {
+  const conexao = abrirConexao(config);
+  try {
+    await conexao.pronta;
+    const v = await conexao.pedir('GetVersion');
+    let micOk = false;
+    if (config.mic) micOk = await conexao.pedir('GetInputMute', { inputName: config.mic }).then(() => true, () => false);
+    return { ok: true, versao: String(v.obsVersion || ''), micOk };
+  } catch (erro) {
+    return { ok: false, erro: erro.message };
+  } finally {
+    conexao.fechar();
+  }
+}
+
+// Teste do aviso de voz no mudo (Configurações > Mudo do microfone): ouve o medidor da entrada por `ms` e diz até onde chegou a voz e se o aviso teria disparado. Não depende
+// de o microfone estar no mudo (o pico da entrada aparece nos dois casos). Devolve { ok, erro?, medicoes, mudo, maxDb, limiarDb, avisaria }.
+export async function testarAvisoDoMic(config, ms = 5000) {
+  const detector = criarDetector();
+  let medicoes = 0;
+  const conexao = abrirConexao(config, undefined, {
+    eventos: EVENTOS_DAS_ENTRADAS | EVENTO_DO_MEDIDOR,
+    aoEvento: d => {
+      if (d.eventType !== 'InputVolumeMeters' || nivelDaEntrada(d.eventData, config.mic) === null) return;
+      medicoes++;
+      detector.processar(d.eventData, config.mic, Date.now());
+    },
+  });
+  try {
+    await conexao.pronta;
+    const estado = await conexao.pedir('GetInputMute', { inputName: config.mic }).then(r => ({ mudo: Boolean(r.inputMuted) }), e => ({ erro: e.message }));
+    if (estado.erro) return { ok: false, erro: `o OBS não achou a entrada “${config.mic}”` };
+    await new Promise(r => setTimeout(r, ms));
+    return { ok: true, medicoes, mudo: estado.mudo, maxDb: emDb(detector.maximo), limiarDb: emDb(detector.limiar), avisaria: detector.falando };
+  } catch (erro) {
+    return { ok: false, erro: erro.message };
+  } finally {
+    conexao.fechar();
+  }
 }
 
 // Liga ou tira do mudo a entrada de áudio `nome` (o microfone escolhido nas configurações), com uma conexão só para isso. Devolve { ok, mudo?, erro? }:

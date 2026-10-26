@@ -121,7 +121,7 @@ import { respostaDoYoutube } from '../src/tagsLista.js';
 
 test('respostaDoYoutube traz o resultado da ação do YouTube só quando o pedido é o esperado', () => {
   const valor = JSON.stringify({ pedido: 'p7', ok: true, erro: '', titulo: 'Live nova', categoria: 'Gaming', avisos: '', semTransmissao: false });
-  assert.deepEqual(respostaDoYoutube({ status: 'ok', variables: { painelYoutube: { value: valor } } }, 'p7'), { ok: true, erro: '', titulo: 'Live nova', categoria: 'Gaming', avisos: '', semTransmissao: false, versao: 1, descricao: '', tags: [], descricaoOk: true, tagsOk: true });
+  assert.deepEqual(respostaDoYoutube({ status: 'ok', variables: { painelYoutube: { value: valor } } }, 'p7'), { ok: true, erro: '', titulo: 'Live nova', categoria: 'Gaming', avisos: '', semTransmissao: false, versao: 1, descricao: '', tags: [], descricaoOk: true, tagsOk: true, categoriaId: '', descricaoConfere: null, tagsConferem: null });
   assert.equal(respostaDoYoutube({ status: 'ok', variables: { painelYoutube: { value: valor } } }, 'outro'), null);
   const falha = JSON.stringify({ pedido: 'p8', ok: false, erro: 'nenhuma transmissão monitorada' });
   assert.equal(respostaDoYoutube({ status: 'ok', value: falha }, 'p8').erro, 'nenhuma transmissão monitorada');
@@ -143,4 +143,14 @@ test('respostaDoYoutube traz a versão do código, a descrição, as tags e o re
   assert.equal(r.tagsOk, true);
   // o código antigo da ação não manda versão: vale 1
   assert.equal(respostaDoYoutube({ status: 'ok', value: JSON.stringify({ pedido: 'p21', ok: true }) }, 'p21').versao, 1);
+});
+
+test('respostaDoYoutube (versão 3) traz o id da categoria e se a transmissão mostra depois a descrição e as tags aplicadas', () => {
+  const valor = JSON.stringify({ pedido: 'p30', ok: true, versao: 3, categoriaId: '20', descricaoConfere: false, tagsConferem: true });
+  const r = respostaDoYoutube({ status: 'ok', value: valor }, 'p30');
+  assert.equal(r.versao, 3);
+  assert.equal(r.categoriaId, '20');
+  assert.equal(r.descricaoConfere, false);
+  assert.equal(r.tagsConferem, true);
+  assert.equal(respostaDoYoutube({ status: 'ok', value: JSON.stringify({ pedido: 'p31', ok: true, descricaoConfere: 'talvez' }) }, 'p31').descricaoConfere, null);
 });

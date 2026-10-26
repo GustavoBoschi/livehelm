@@ -44,7 +44,9 @@ const PADRAO = {
   youtubeInfo: { ligado: false },
   modosDoChat: { ligado: false, lentoSegundos: 30, seguidoresMinutos: 0 },
   clipe: { ligado: false, duracao: 30 },
-  mic: { ligado: false, entrada: '' },
+  mic: { ligado: false, entrada: '', avisoNoMudo: true }, // avisoNoMudo: a caixinha pisca quando há voz com o microfone no mudo
+  // Abas do chat: a aba Resgates (fila da Twitch, com Cumprir e Reembolsar) e a aba AutoMod (só as mensagens retidas). Desligadas. Responder e ver o perfil não têm interruptor: valem sempre.
+  chat: { resgates: false, automod: false },
   // Painel de Multistream: o painel com os botões Iniciar e Parar lives (que pedem confirmação). Vem desligado: os botões mexem na live, então
   // quem os quer liga nas configurações.
   multistream: { ligado: false },
