@@ -166,11 +166,16 @@ const eventoTwitch = (type, data) => converterEventoStreamerbot({ event: { sourc
 
 test('mensagem retida pelo AutoMod vira um evento com id, autor, texto e motivo', () => {
   const r = eventoTwitch('AutoModMessageHeld', { messageId: 'm-9', rawInput: 'isto é um teste', category: 'swearing', level: 2, user: { id: '5', login: 'ana', name: 'Ana' } });
-  assert.deepEqual(r, { tipo: 'retida', plataforma: 'twitch', id: 'm-9', nome: 'Ana', texto: 'isto é um teste', motivo: 'swearing', nivel: 2 });
+  assert.deepEqual(r, { tipo: 'retida', plataforma: 'twitch', id: 'm-9', semId: false, nome: 'Ana', texto: 'isto é um teste', motivo: 'swearing', nivel: 2 });
 });
 
-test('mensagem retida sem id é ignorada, e a atualização traz o que decidiram', () => {
-  assert.equal(eventoTwitch('AutoModMessageHeld', { rawInput: 'sem id', user: { name: 'Ana' } }), null);
+test('mensagem retida sem id aparece sem botões (e sem nenhum campo conhecido mostra o evento cru), e a atualização traz o que decidiram', () => {
+  assert.deepEqual(eventoTwitch('AutoModMessageHeld', { rawInput: 'sem id', user: { name: 'Ana' } }), { tipo: 'retida', plataforma: 'twitch', id: '', semId: true, nome: 'Ana', texto: 'sem id', motivo: '', nivel: null });
+  const outro = eventoTwitch('AutoModMessageHeld', { message: { messageId: 'x-1', username: 'Beto', text: 'dentro de message' }, input0: 'ola', input1: 'mundo', category: 'swearing' });
+  assert.equal(outro.id, 'x-1'); assert.equal(outro.nome, 'Beto'); assert.equal(outro.texto, 'dentro de message');
+  assert.equal(eventoTwitch('AutoModMessageHeld', { messageId: 'p-1', input1: 'mundo', input0: 'ola', user: { name: 'Cia' } }).texto, 'ola mundo', 'sem rawInput, junta as palavras input0, input1...');
+  const cru = eventoTwitch('AutoModMessageHeld', { campoNovo: 'x' });
+  assert.equal(cru.semId, true); assert.match(cru.texto, /evento sem texto reconhecido.*campoNovo/);
   assert.deepEqual(eventoTwitch('AutoModMessageUpdate', { messageId: 'm-9', status: 'Approved' }), { tipo: 'retidaAtualizada', plataforma: 'twitch', id: 'm-9', status: 'permitida' });
   assert.equal(eventoTwitch('AutoModMessageUpdate', { messageId: 'm-9', status: 'denied' }).status, 'negada');
   assert.equal(eventoTwitch('AutoModMessageUpdate', { messageId: 'm-9', status: 'expired' }).status, 'expirada');

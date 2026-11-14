@@ -5,7 +5,7 @@ public class CPHInline
 {
     // Global (nao persistente) onde o resultado fica para o LiveHelm buscar pelo WebSocket.
     const string VariavelDeResposta = "painelControles";
-    const int VERSAO = 2; // 2: tambem cumpre e reembolsa resgates, responde mensagens e le o perfil de quem escreve
+    const int VERSAO = 3; // 2: tambem cumpre e reembolsa resgates, responde mensagens e le o perfil de quem escreve; 3: o clipe nao usa mais o tipo ClipData (a v2 NAO compilava: error CS0012, e nenhuma funcao do painel respondia) e ganhou o modo escudo
     // false: as respostas saem com a sua conta; true: com a conta do bot
     const bool USAR_BOT = false;
 
@@ -114,6 +114,14 @@ public class CPHInline
             case "inscritos":
                 CPH.TwitchSubscriberOnly(ligar);
                 break;
+            case "escudo":
+                if (!(ligar ? CPH.TwitchShieldModeOn() : CPH.TwitchShieldModeOff()))
+                {
+                    CPH.LogWarn("Painel: a Twitch nao mudou o modo escudo (a conta precisa ser moderadora do canal).");
+                    Responder(pedido, false, "a Twitch nao mudou o modo escudo", "");
+                    return false;
+                }
+                break;
             default:
                 CPH.LogWarn("Painel: Controles recebeu um modo de chat desconhecido (\"" + modo + "\").");
                 Responder(pedido, false, "modo de chat desconhecido: " + modo, "");
@@ -123,18 +131,38 @@ public class CPHInline
         return true;
     }
 
+    string UrlDoClipe(string titulo, int duracao)
+    {
+        Type[] tipos = new Type[] { typeof(string), typeof(int) };
+        object[] valores = new object[] { titulo == "" ? null : titulo, duracao };
+        System.Reflection.MethodInfo metodo = CPH.GetType().GetMethod("CreateClip", tipos);
+        if (metodo == null)
+            foreach (Type i in CPH.GetType().GetInterfaces())
+            {
+                metodo = i.GetMethod("CreateClip", tipos);
+                if (metodo != null) break;
+            }
+        if (metodo == null) { CPH.LogWarn("Painel: este Streamer.bot nao tem o CreateClip."); return ""; }
+        object clipe = metodo.Invoke(CPH, valores);
+        if (clipe == null) return "";
+        System.Reflection.PropertyInfo url = clipe.GetType().GetProperty("Url");
+        return url == null ? "" : Convert.ToString(url.GetValue(clipe, null)) ?? "";
+    }
+
     bool Clipe(string pedido)
     {
         string titulo = Texto("titulo").Trim();
         if (titulo.Length > 100) titulo = titulo.Substring(0, 100);
-        var clipe = CPH.CreateClip(titulo == "" ? null : titulo, Numero("duracao", 30, 5, 60));
-        if (clipe == null || string.IsNullOrEmpty(clipe.Url))
+        // O tipo do clipe (ClipData) mora na Twitch.Common.dll, que esta acao nao referencia (a lista de References nasce so com o mscorlib): usar o tipo direto
+        // faz o codigo INTEIRO deixar de compilar (error CS0012) e nenhuma funcao do painel funciona. Por isso o CreateClip e chamado e lido por reflexao.
+        string url = UrlDoClipe(titulo, Numero("duracao", 30, 5, 60));
+        if (url == "")
         {
             CPH.LogWarn("Painel: a Twitch nao criou o clipe (a live precisa estar no ar na Twitch).");
             Responder(pedido, false, "a Twitch nao criou o clipe (a live precisa estar no ar)", "");
             return false;
         }
-        Responder(pedido, true, "", clipe.Url);
+        Responder(pedido, true, "", url);
         return true;
     }
 

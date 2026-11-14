@@ -48,6 +48,10 @@ public class CPHInline
         string usuario = Texto("usuario");
         string usuarioId = Texto("usuarioId");
         int segundos = Numero("segundos", 600);
+        // O motivo do ban e do silencio (a Twitch mostra a quem foi punido e no registro de moderacao). Sem motivo, vale o padrao.
+        string motivo = Texto("motivo").Trim();
+        if (motivo == "") motivo = "Violar as Regras do Chat";
+        if (motivo.Length > 300) motivo = motivo.Substring(0, 300);
 
         switch (acao)
         {
@@ -62,8 +66,8 @@ public class CPHInline
                 else CPH.LogWarn("Painel: o YouTube nao permite apagar mensagens.");
                 break;
             case "silenciar":
-                if (plataforma == "twitch") CPH.TwitchTimeoutUser(usuario, segundos, "Painel", USAR_BOT);
-                else if (plataforma == "kick") CPH.KickTimeoutUser(usuario, segundos, "Painel", USAR_BOT);
+                if (plataforma == "twitch") CPH.TwitchTimeoutUser(usuario, segundos, motivo, USAR_BOT);
+                else if (plataforma == "kick") CPH.KickTimeoutUser(usuario, segundos, motivo, USAR_BOT);
                 else if (plataforma == "youtube")
                 {
                     if (usuarioId != "") CPH.YouTubeTimeoutUserById(usuarioId, segundos);
@@ -71,8 +75,8 @@ public class CPHInline
                 }
                 break;
             case "banir":
-                if (plataforma == "twitch") CPH.TwitchBanUser(usuario, "Painel", USAR_BOT);
-                else if (plataforma == "kick") CPH.KickBanUser(usuario, "Painel", USAR_BOT);
+                if (plataforma == "twitch") CPH.TwitchBanUser(usuario, motivo, USAR_BOT);
+                else if (plataforma == "kick") CPH.KickBanUser(usuario, motivo, USAR_BOT);
                 else if (plataforma == "youtube")
                 {
                     if (usuarioId != "") CPH.YouTubeBanUserById(usuarioId);

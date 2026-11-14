@@ -149,9 +149,20 @@ export function youtubeComecou(atrasoMs = 4000, intervaloMs = 8000) {
   setTimeout(() => tentar(2), atrasoMs);
 }
 
+// O que o OBS diz da transmissão ('no-ar', 'parada' ou 'desconhecida', de lives.js estadoDoObs), informado pelo App. Logo depois de encerrar, o Streamer.bot ainda mostra
+// a transmissão do YouTube como "live" por um tempo (o Status só vira "complete" depois), e o título novo caía no VÍDEO da live que acabou. Com o OBS parado, o pedido
+// do YouTube fica guardado para a próxima live, como quando não há transmissão.
+let estadoDoObsAgora = 'desconhecida';
+export function informarEstadoDoObs(estado) { estadoDoObsAgora = estado; }
+const youtubeParadoNoObs = () => estadoDoObsAgora === 'parada';
+
 // `forcada`: a categoria do YouTube de uma predefinição de live (vazia = as regras das configurações decidem).
 async function atualizarYoutube(acao, titulo, categoria, forcada = '') {
   const plataforma = 'youtube';
+  if (youtubeParadoNoObs()) {
+    guardarPendenteDoYoutube({ titulo, categoria, categoriaYoutube: forcada });
+    return { plataforma, nivel: 1, categoriaOk: true, semTransmissao: true, texto: 'live encerrada (aplico na próxima)' };
+  }
   const pedido = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   // A categoria do YouTube segue o que a live é (regras nas configurações: "Just Chatting" vira People & Blogs); sem regra, a padrão (Gaming).
   const { youtube } = lerConfig();
@@ -201,6 +212,10 @@ export async function lerInfoDoYoutube() {
 // Manda o que mudou (info: { tags, trocarTags, descricao, trocarDescricao }, já limpo). Devolve { plataforma, nivel, texto, semTransmissao? }.
 async function enviarInfoDoYoutube(acao, info) {
   const plataforma = 'youtube';
+  if (youtubeParadoNoObs()) {
+    guardarInfoPendenteDoYoutube(info);
+    return { plataforma, nivel: 1, semTransmissao: true, texto: 'live encerrada (aplico na próxima)' };
+  }
   const args = { pedido: pedidoNovo(), tituloLive: '', categoriaYoutube: '' };
   if (info.trocarDescricao) { args.descricaoDefinir = 'true'; args.descricaoLive = info.descricao; }
   if (info.trocarTags) { args.tagsAcao = info.tags.length ? 'definir' : 'limpar'; args.tagsYoutube = info.tags.join('|'); }
@@ -346,6 +361,9 @@ export const temControlesAgora = () => Boolean(achar(ACAO_CONTROLES));
 export async function decidirResgate({ rewardId, redemptionId, decisao }) {
   const r = await pedirControle({ acao: 'resgate', decisao, rewardId, redemptionId });
   if (r.nivel === 0 && r.versao < 2) return { nivel: 2, texto: 'atualize o código da ação Painel: Controles (Painel-Controles.cs)' };
+  // A Twitch só deixa um aplicativo cumprir ou reembolsar os resgates das recompensas que ELE criou (o log do Streamer.bot diz "The ID in the Client-Id header must match the client ID
+  // used to create the custom reward"): uma recompensa criada no painel da Twitch só se resolve lá. A ação responde "a Twitch nao aceitou"; aqui isso vira o motivo provável.
+  if (r.nivel === 2 && /n[aã]o aceitou/i.test(r.texto || '')) return { ...r, texto: 'a Twitch recusou: por aqui só dá para resolver recompensas criadas DENTRO do Streamer.bot (as do painel da Twitch se resolvem lá)' };
   return r.nivel === 0 ? { ...r, texto: decisao === 'cumprir' ? 'cumprido' : 'reembolsado' } : r;
 }
 

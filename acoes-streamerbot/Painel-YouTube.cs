@@ -6,7 +6,7 @@ public class CPHInline
 {
     // Global (nao persistente) onde o resultado fica para o LiveHelm buscar pelo WebSocket.
     const string VariavelDeResposta = "painelYoutube";
-    const int VERSAO = 4;                 // 2: tambem le e muda tags e descricao; 3: tenta outros nomes da categoria e confere o resultado; 4: nao reclama da categoria que a transmissao ja tem e avisa no log se o titulo ficou com um %texto% (o LiveHelm confere a versao, para avisar de um codigo antigo)
+    const int VERSAO = 6;                 // 2: tambem le e muda tags e descricao; 3: tenta outros nomes da categoria e confere o resultado; 4: nao reclama da categoria que a transmissao ja tem e avisa no log se o titulo ficou com um %texto%; 5: nao mexe em transmissao que ja terminou (virou video) e tenta os nomes de categoria do YouTube Studio; 6: se YouTubeSetCategory recusar, tenta YouTubeSetMetaData (titulo, descricao, privacidade e categoria juntos) (o LiveHelm confere a versao, para avisar de um codigo antigo)
     const int MAX_DESCRICAO = 5000;       // letras da descricao (limite do YouTube)
     const int MAX_LETRAS_DAS_TAGS = 500;  // soma das letras das tags (limite do YouTube)
 
@@ -14,10 +14,10 @@ public class CPHInline
     // (como o YouTube Studio mostra) e o numero da categoria. Cada nome recusado vai para o log do Streamer.bot, e o que funcionar tambem.
     static readonly Dictionary<string, string[]> OutrosNomes = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
     {
-        { "Film & Animation", new[] { "Filmes e anima\u00e7\u00f5es", "1" } },
-        { "Autos & Vehicles", new[] { "Autom\u00f3veis e ve\u00edculos", "2" } },
+        { "Film & Animation", new[] { "Filme e anima\u00e7\u00e3o", "Filmes e anima\u00e7\u00f5es", "1" } },
+        { "Autos & Vehicles", new[] { "Autom\u00f3veis", "Autom\u00f3veis e ve\u00edculos", "2" } },
         { "Music", new[] { "M\u00fasica", "10" } },
-        { "Pets & Animals", new[] { "Animais de estima\u00e7\u00e3o", "15" } },
+        { "Pets & Animals", new[] { "Animais", "Animais de estima\u00e7\u00e3o", "15" } },
         { "Sports", new[] { "Esportes", "17" } },
         { "Travel & Events", new[] { "Viagens e eventos", "19" } },
         { "Gaming", new[] { "Jogos", "20" } },
@@ -25,10 +25,10 @@ public class CPHInline
         { "Comedy", new[] { "Com\u00e9dia", "23" } },
         { "Entertainment", new[] { "Entretenimento", "24" } },
         { "News & Politics", new[] { "Not\u00edcias e pol\u00edtica", "25" } },
-        { "Howto & Style", new[] { "Guias e estilo", "26" } },
+        { "Howto & Style", new[] { "Instruções e estilo", "Guias e estilo", "26" } },
         { "Education", new[] { "Educa\u00e7\u00e3o", "27" } },
         { "Science & Technology", new[] { "Ci\u00eancia e tecnologia", "28" } },
-        { "Nonprofits & Activism", new[] { "ONGs e ativismo", "29" } },
+        { "Nonprofits & Activism", new[] { "Sem fins lucrativos e ativismo", "ONGs e ativismo", "29" } },
     };
 
     // Define a categoria tentando o nome pedido e depois os outros nomes dela. Devolve o nome que o Streamer.bot aceitou ("" se nenhum) e, em tentadas, os recusados.
@@ -62,6 +62,23 @@ public class CPHInline
         return a >= 0 && (titulo ?? "").IndexOf('%', a + 1) > a + 1;
     }
 
+    // Segunda tentativa para a categoria: o Streamer.bot tem YouTubeSetMetaData(titulo, descricao, privacidade, categoria, id), que manda tudo junto (o YouTube costuma pedir o titulo no mesmo envio da categoria),
+    // e YouTubeSetCategory sozinho foi recusado em todos os testes. Titulo, descricao e privacidade vao como a transmissao ja tem, so a categoria muda; sem o titulo ou a privacidade conhecidos nao tenta
+    // (nao arrisca mudar a privacidade da live). Devolve o nome que o Streamer.bot aceitou ("" se nenhum) e, em tentadas, os recusados ("metadados: nome").
+    string DefinirCategoriaComMetadados(string pedida, string idDaLive, string titulo, string descricao, string privacidade, List<string> tentadas)
+    {
+        if (string.IsNullOrEmpty(titulo) || string.IsNullOrEmpty(privacidade)) return "";
+        List<string> nomes = new List<string> { pedida };
+        string[] outros;
+        if (OutrosNomes.TryGetValue(pedida, out outros)) nomes.AddRange(outros);
+        foreach (string nome in nomes)
+        {
+            if (CPH.YouTubeSetMetaData(titulo, descricao ?? "", privacidade, nome, idDaLive)) return nome;
+            tentadas.Add("metadados: " + nome);
+        }
+        return "";
+    }
+
     // As tags de duas listas sao as mesmas (sem diferenciar maiusculas e sem importar a ordem)?
     bool MesmasTags(List<string> a, IList<string> b)
     {
@@ -74,6 +91,13 @@ public class CPHInline
             if (!achou) return false;
         }
         return true;
+    }
+
+    // O Status da transmissao no YouTube: created, ready, testing, live, complete (terminou e virou video) ou revoked.
+    bool Terminou(string status)
+    {
+        string s = (status ?? "").Trim().ToLowerInvariant();
+        return s == "complete" || s == "revoked";
     }
 
     string Texto(string nome)
@@ -161,11 +185,25 @@ public class CPHInline
         try
         {
             var live = CPH.YouTubeGetLatestMonitoredBroadcast();
-            if (live == null || string.IsNullOrEmpty(live.Id))
+            if (live == null || string.IsNullOrEmpty(live.Id) || Terminou(live.Status))
             {
-                // Sem "a mais recente", tenta a lista de todas as monitoradas.
+                // Sem "a mais recente" (ou com ela ja terminada), procura na lista das monitoradas uma que ainda nao terminou, da mais nova para a mais velha.
                 var todas = CPH.YouTubeGetMonitoredBroadcasts();
-                if (todas != null && todas.Count > 0) live = todas[todas.Count - 1];
+                if (todas != null)
+                {
+                    if ((live == null || string.IsNullOrEmpty(live.Id)) && todas.Count > 0) live = todas[todas.Count - 1];
+                    for (int i = todas.Count - 1; i >= 0; i--)
+                        if (todas[i] != null && !string.IsNullOrEmpty(todas[i].Id) && !Terminou(todas[i].Status)) { live = todas[i]; break; }
+                }
+            }
+            if (live != null && !string.IsNullOrEmpty(live.Id) && Terminou(live.Status))
+            {
+                // So restam transmissoes que ja terminaram: mudar o titulo (ou a categoria, a descricao e as tags) mexeria no VIDEO dela, nao na proxima live. O LiveHelm guarda o pedido e o aplica quando uma live abrir.
+                CPH.LogWarn("Painel: a ultima transmissao do YouTube (" + live.Id + ") ja terminou (status " + live.Status + "): nao mexo nela. O pedido fica guardado para a proxima live.");
+                r.Erro = "a ultima transmissao do YouTube ja terminou (virou video): nao mexo nela, o pedido fica guardado para a proxima live";
+                r.SemTransmissao = true;
+                Responder(r);
+                return false;
             }
             if (live == null || string.IsNullOrEmpty(live.Id))
             {
@@ -212,6 +250,12 @@ public class CPHInline
                     CPH.Wait(1500);
                     recusados.Clear();
                     usada = DefinirCategoria(categoria, live.Id, recusados);
+                }
+                if (usada == "")
+                {
+                    // So a categoria, sem mexer no resto: titulo e descricao como a transmissao tem (ou o titulo novo, se este pedido o mudou) e a privacidade que ela ja tem.
+                    usada = DefinirCategoriaComMetadados(categoria, live.Id, titulo != "" && tituloOk ? titulo : live.Title, live.Description, live.Privacy, recusados);
+                    if (usada != "") CPH.LogInfo("Painel: a categoria so mudou pelo YouTubeSetMetaData (YouTubeSetCategory recusou todos os nomes).");
                 }
                 if (usada != "")
                 {

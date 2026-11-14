@@ -111,3 +111,12 @@ export function problemasDaTransmissao({ congestao, reconectando, renderPct, enc
   }
   return p.sort((a, b) => (a.nivel === b.nivel ? 0 : a.nivel === 'ruim' ? -1 : 1));
 }
+
+// O início que a plataforma informou, se ele faz sentido: nenhuma plataforma começa antes de o OBS começar a transmitir (a principal ou os destinos do multistream).
+// O YouTube às vezes informa um início de minutos antes (o de outra transmissão, ou de quando a transmissão foi criada), e o tempo dele saía na frente do da Twitch
+// mesmo abrindo depois. Mais cedo que o OBS (com uma folga para relógios diferentes) não vale: devolve null e o tempo segue o do OBS.
+export function inicioCoerente(informadoMs, inicioDoObsMs, folgaMs = 60_000) {
+  if (!informadoMs) return null;
+  if (!inicioDoObsMs) return informadoMs;
+  return informadoMs >= inicioDoObsMs - folgaMs ? informadoMs : null;
+}

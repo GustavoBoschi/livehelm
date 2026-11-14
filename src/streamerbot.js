@@ -276,6 +276,12 @@ function usuarioDe(data) {
   };
 }
 
+// O id da mensagem retida pelo AutoMod, em qualquer dos formatos que o evento pode ter (campo solto ou dentro de `message`).
+function idDaRetida(data) {
+  const msg = data.message && typeof data.message === 'object' ? data.message : {};
+  return texto(data.messageId || data.message_id || data.msgId || data.id || msg.messageId || msg.message_id || msg.msgId || msg.id);
+}
+
 // Paleta padrão da Twitch: nick sem cor (o YouTube não manda, e muita gente da Twitch nunca escolheu) ganha sempre a mesma, sorteada pelo nome.
 const CORES_PADRAO_DO_NOME = [
   '#ff0000', '#0000ff', '#00ff00', '#b22222', '#ff7f50', '#9acd32', '#ff4500', '#2e8b57',
@@ -330,16 +336,21 @@ export function converterEventoStreamerbot(msg) {
 
   // Mensagem retida pelo AutoMod da Twitch (os campos do evento seguem as variáveis do gatilho: messageId, rawInput, category, level; o
   // autor vem em user). O dock mostra com Permitir e Negar; a atualização diz o que aconteceu com ela.
+  // O evento não tem esquema documentado (a documentação do Streamer.bot diz "No Schema Available"), então o id e o texto são procurados em vários formatos; sem o id a mensagem aparece
+  // do mesmo jeito (o autor e o texto), só sem os botões, e sem nenhum campo reconhecido o conteúdo cru do evento vai no lugar do texto, para dar para ver o que o Streamer.bot mandou.
   if (source === 'Twitch' && type === 'AutoModMessageHeld') {
-    const id = texto(data.messageId || data.id);
-    if (!id) return null;
+    const id = idDaRetida(data);
+    const nome = usuario.name || usuario.login || texto(data.message && (data.message.username || data.message.displayName || data.message.user)) || 'Alguém';
+    const palavras = Object.keys(data).filter(k => /^input\d+$/.test(k)).sort((a, b) => Number(a.slice(5)) - Number(b.slice(5))).map(k => texto(data[k])).filter(Boolean).join(' ');
+    const msg = data.message;
+    const conteudo = texto(data.rawInput || data.text || (typeof msg === 'string' ? msg : msg && (msg.rawInput || msg.text || msg.message)) || palavras || mensagemEmTexto(data));
     return {
-      tipo: 'retida', plataforma: 'twitch', id, nome: usuario.name || usuario.login || 'Alguém',
-      texto: texto(data.rawInput || data.text || data.message || mensagemEmTexto(data)), motivo: texto(data.category), nivel: numero(data.level),
+      tipo: 'retida', plataforma: 'twitch', id, semId: !id, nome,
+      texto: conteudo || `(evento sem texto reconhecido) ${JSON.stringify(data).slice(0, 240)}`, motivo: texto(data.category || data.reason), nivel: numero(data.level),
     };
   }
   if (source === 'Twitch' && type === 'AutoModMessageUpdate') {
-    const id = texto(data.messageId || data.id);
+    const id = idDaRetida(data);
     if (!id) return null;
     const bruto = texto(data.status || data.state || data.moderationStatus).toLowerCase();
     const status = /approv|permit|allow/.test(bruto) ? 'permitida' : /den|reject|negad/.test(bruto) ? 'negada' : /expir/.test(bruto) ? 'expirada' : '';
@@ -372,7 +383,9 @@ export function converterEventoStreamerbot(msg) {
   // YouTube.StatisticsUpdated (concurrentViewers, broadcast.actualStartTime) e YouTube.BroadcastStarted/Ended; os demais campos têm
   // candidatos (Twitch.ViewerCountUpdate e Kick.StreamOnline não têm esquema documentado).
   if (type === 'ViewerCountUpdate' || (source === 'YouTube' && type === 'StatisticsUpdated')) {
-    const quantidade = numero(data.viewerCount, data.viewers, data.concurrentViewers, data.count);
+    // O YouTube não manda `concurrentViewers` quando a live está com 0 pessoas (a API omite o campo): sem o número, o aviso de estatísticas do YouTube vale 0,
+    // senão a live dele sumia da contagem enquanto ninguém assistia.
+    const quantidade = numero(data.viewerCount, data.viewers, data.concurrentViewers, data.count) ?? (source === 'YouTube' ? 0 : null);
     const inicio = Date.parse(texto(data.broadcast && data.broadcast.actualStartTime));
     return quantidade === null ? null : { tipo: 'espectadores', plataforma, quantidade, inicioMs: Number.isFinite(inicio) ? inicio : null };
   }

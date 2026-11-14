@@ -12,10 +12,11 @@ import { CATEGORIAS_DO_YOUTUBE, REGRAS_PADRAO_DO_YOUTUBE } from './titulos.js';
 import { verificarConfiguracao } from './verificar.js';
 import { testarAvisoDeAnuncio } from './AvisoAnuncio.jsx';
 import { NOME_DA_ACAO_DE_ANUNCIO, canalLido } from './acoes.js';
+import { REDES_DOS_LINKS, normalizarLink } from './links.js';
 import { ALERTAS_NO_CHAT_GERAL, TIPOS_DE_ALERTA, apareceNoChatGeral } from './alertas.js';
 
 // Ids das seções, na ordem da tela (abrir e recolher todas).
-const SECOES = ['aparencia', 'streamerbot', 'obs', 'momentos', 'alertas', 'chat', 'youtube', 'presets', 'modos', 'clipe', 'mic', 'saude', 'multistream', 'anuncio'];
+const SECOES = ['aparencia', 'streamerbot', 'obs', 'momentos', 'alertas', 'chat', 'youtube', 'presets', 'modos', 'clipe', 'mic', 'links', 'saude', 'multistream', 'anuncio'];
 
 // Uma seção das configurações: o título é um botão que abre e fecha. `extra` fica ao lado do título sempre (o "conectado" do Streamer.bot).
 function Secao({ id, titulo, extra, padrao = false, abertas, alternar, children }) {
@@ -359,6 +360,26 @@ export default function Configuracoes({ conectado, recusa, ativas, onVoltar }) {
         {testeMic && <p className={`resultado-teste nivel-${testeMic.nivel}`} id="resultado-teste-mic">{placar[testeMic.nivel]} {testeMic.texto}</p>}
         {!config.mic.entrada.trim() && <p className="aviso">Escolha a entrada do microfone para o botão aparecer.</p>}
         </>}
+      </Secao>
+
+      <Secao id="links" titulo="Links das redes" {...propriedades}>
+        <label className="opcao-linha" htmlFor="config-links-ligado">
+          <input id="config-links-ligado" type="checkbox" checked={config.links.ligado} onChange={e => mudarSecao('links', { ligado: e.target.checked })} />
+          Mostrar o botão de links no alto
+        </label>
+        <p className="dica">O botão abre uma janelinha só com os símbolos das redes; um clique leva ao endereço de cada uma, no navegador. As que ficarem em branco não aparecem.</p>
+        {config.links.ligado && REDES_DOS_LINKS.map(rede => {
+          const texto = config.links.itens[rede.id] || '';
+          const invalido = texto.trim() !== '' && !normalizarLink(texto);
+          return (
+            <div key={rede.id} className="config-link">
+              <label className="rotulo" htmlFor={`config-link-${rede.id}`}>{rede.nome}</label>
+              <input id={`config-link-${rede.id}`} type="text" value={texto} placeholder={rede.exemplo} spellCheck={false} autoComplete="off"
+                     onChange={e => mudarSecao('links', { itens: { ...config.links.itens, [rede.id]: e.target.value } })} />
+              {invalido && <span className="config-link-erro" role="alert">Esse endereço não serve: use algo como {rede.exemplo}.</span>}
+            </div>
+          );
+        })}
       </Secao>
 
       <Secao id="saude" titulo="Saúde do OBS" {...propriedades}>

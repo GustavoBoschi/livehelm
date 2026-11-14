@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { estadoInicialDasLives, aplicarEventoDeLive, totalDeEspectadores, duracaoCurta, tempoNoAr, saudeDeAmostras, estaNoAr, problemasDaTransmissao } from '../src/lives.js';
+import { estadoInicialDasLives, aplicarEventoDeLive, totalDeEspectadores, duracaoCurta, tempoNoAr, saudeDeAmostras, estaNoAr, problemasDaTransmissao, inicioCoerente } from '../src/lives.js';
 import { converterEventoStreamerbot } from '../src/streamerbot.js';
 
 const agora = 1_000_000_000_000;
@@ -98,4 +98,20 @@ test('todo problema da transmissão tem um texto curto, que cabe ao lado do Live
     assert.ok(p, JSON.stringify(c));
     assert.ok(p.curto && p.curto.length <= 26 && p.curto.length < p.texto.length, `${p.texto} -> ${p.curto}`);
   }
+});
+
+test('o YouTube com 0 pessoas (a API omite concurrentViewers) conta como 0 e continua na contagem', () => {
+  assert.equal(evento('YouTube', 'StatisticsUpdated', { broadcast: { actualStartTime: '2026-10-17T01:00:00Z' } }).quantidade, 0);
+  const agora = Date.now();
+  const e = aplicarEventoDeLive(estadoInicialDasLives(), { tipo: 'espectadores', plataforma: 'youtube', quantidade: 0, inicioMs: null }, agora);
+  assert.deepEqual(totalDeEspectadores(e, agora), { total: 0, porPlataforma: { youtube: 0 } });
+});
+
+test('o início informado pela plataforma não vale se for antes de o OBS começar (com 1 min de folga)', () => {
+  const obs = 1_000_000_000;
+  assert.equal(inicioCoerente(obs - 5 * 60_000, obs), null, 'o YouTube 5 min antes do OBS: ignora');
+  assert.equal(inicioCoerente(obs - 30_000, obs), obs - 30_000, 'dentro da folga: vale');
+  assert.equal(inicioCoerente(obs + 90_000, obs), obs + 90_000, 'depois do OBS (multistream atrasado): vale');
+  assert.equal(inicioCoerente(obs - 5 * 60_000, null), obs - 5 * 60_000, 'sem leitura do OBS: vale o informado');
+  assert.equal(inicioCoerente(null, obs), null);
 });

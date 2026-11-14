@@ -41,16 +41,19 @@ test('ação que falta: ✕ (ou ! para tags e momentos), com o nome exato e o qu
 test('o código de Painel: Controles e de Painel: YouTube precisa estar na versão 2 quando o recurso está ligado', () => {
   const comControles = { config: config({ clipe: { ligado: true } }), nomes: [...TODAS, 'Painel: Controles'] };
   assert.equal(montarVerificacao(base({ ...comControles, controles: { achou: true, versao: 1 } })).find(x => x.id === 'controles').nivel, 2);
-  assert.equal(montarVerificacao(base({ ...comControles, controles: { achou: true, versao: 2 } })).find(x => x.id === 'controles').nivel, 0);
+  assert.equal(montarVerificacao(base({ ...comControles, controles: { achou: true, versao: 2 } })).find(x => x.id === 'controles').nivel, 2, 'a versão 2 não compilava no Streamer.bot (CS0012)');
+  assert.equal(montarVerificacao(base({ ...comControles, controles: { achou: true, versao: 3 } })).find(x => x.id === 'controles').nivel, 0);
   assert.equal(montarVerificacao(base({ ...comControles, controles: { achou: false, versao: 0 } })).find(x => x.id === 'controles').nivel, 1);
   const comYoutube = { config: config({ youtubeInfo: { ligado: true } }) };
   assert.equal(montarVerificacao(base({ ...comYoutube, youtube: { achou: true, versao: 1 } })).find(x => x.id === 'youtube').nivel, 2);
   assert.equal(montarVerificacao(base({ ...comYoutube, youtube: { achou: true, versao: 2 } })).find(x => x.id === 'youtube').nivel, 1);
   assert.equal(montarVerificacao(base({ ...comYoutube, youtube: { achou: true, versao: 3 } })).find(x => x.id === 'youtube').nivel, 1, 'a versão 3 ainda funciona, mas a 4 é a atual');
-  assert.equal(montarVerificacao(base({ ...comYoutube, youtube: { achou: true, versao: 4 } })).find(x => x.id === 'youtube').nivel, 0);
+  assert.equal(montarVerificacao(base({ ...comYoutube, youtube: { achou: true, versao: 4 } })).find(x => x.id === 'youtube').nivel, 1, 'a versão 4 ainda funciona, mas a 5 é a atual');
+  assert.equal(montarVerificacao(base({ ...comYoutube, youtube: { achou: true, versao: 5 } })).find(x => x.id === 'youtube').nivel, 1, 'a versão 5 ainda funciona, mas a 6 é a atual');
+  assert.equal(montarVerificacao(base({ ...comYoutube, youtube: { achou: true, versao: 6 } })).find(x => x.id === 'youtube').nivel, 0);
   // sem tags e descrição ligadas, o código antigo só pede atualização (aviso), e a versão 4 está certa
   assert.equal(montarVerificacao(base({ youtube: { achou: true, versao: 1 } })).find(x => x.id === 'youtube').nivel, 1);
-  assert.equal(montarVerificacao(base({ youtube: { achou: true, versao: 4 } })).find(x => x.id === 'youtube').nivel, 0);
+  assert.equal(montarVerificacao(base({ youtube: { achou: true, versao: 6 } })).find(x => x.id === 'youtube').nivel, 0);
 });
 
 test('Streamer.bot desconectado ou que recusou a conexão: ✕ e nada de checar ações; plataforma ligada sem conexão: !', () => {

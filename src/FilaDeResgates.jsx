@@ -6,11 +6,13 @@ import { PLATAFORMAS } from './plataformas.js';
 
 const ROTULO_DO_ESTADO = { cumprido: 'cumprido', reembolsado: 'reembolsado', automatico: 'automático', semid: 'sem id no evento: resolva pela Twitch' };
 
-export default function FilaDeResgates({ fila, aoDecidir, conectado, semAcao }) {
+export default function FilaDeResgates({ fila, aoDecidir, aoLimpar, conectado, semAcao }) {
   if (fila.length === 0) {
     return <p className="vazio" id="fila-vazia">{!conectado ? 'Os resgates aparecem aqui quando o Streamer.bot estiver conectado.' : 'Nenhum resgate ainda. Os da Twitch que chegarem com o dock aberto aparecem aqui.'}</p>;
   }
-  return fila.map(i => {
+  return <>
+    <div className="fila-topo"><button type="button" id="limpar-resgates" onClick={aoLimpar} title="Tira todos os resgates da lista, inclusive os pendentes (na Twitch eles continuam na fila). Também: /limparresgates">Limpar tudo ({fila.length})</button></div>
+  {fila.map(i => {
     const semId = !i.redemptionId || !i.rewardId;
     const resolvido = i.estado === 'cumprido' || i.estado === 'reembolsado' || i.estado === 'automatico' || i.estado === 'semid';
     return (
@@ -34,5 +36,6 @@ export default function FilaDeResgates({ fila, aoDecidir, conectado, semAcao }) 
         </div>
       </div>
     );
-  });
+  })}
+  </>;
 }

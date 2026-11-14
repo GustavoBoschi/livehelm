@@ -14,7 +14,7 @@ export function acoesNecessarias({ config, ativas }) {
   if (config.anuncio.ligado) lista.push(['Painel: Anuncio', 2, 'o botão Adiar 5 min do aviso de anúncio']);
   // Responder e ver o perfil funcionam sem ela (a resposta sai com @nome e o cartão mostra o que o chat entrega); com ela a resposta é ligada à mensagem e o perfil traz a conta da Twitch.
   const usaControles = config.modosDoChat.ligado || config.clipe.ligado || config.chat.resgates;
-  if (usaControles) lista.push(['Painel: Controles', 2, 'modos do chat, clipe e a fila de resgates']);
+  if (usaControles) lista.push(['Painel: Controles', 3, 'modos do chat, clipe e a fila de resgates']);
   return { lista, usaControles };
 }
 
@@ -40,15 +40,15 @@ export function montarVerificacao(f) {
       for (const [nome, nivel, paraQue] of faltam) ponha(`acao-${nome}`, nivel, `Falta a ação “${nome}” (${paraQue})`, AJUDA_DA_ACAO);
       if (faltam.length === 0) ponha('acoes', 0, `As ${lista.length} ações que você usa existem`);
       if (usaControles && f.nomes.includes('Painel: Controles') && f.controles) {
-        if (!f.controles.achou) ponha('controles', 1, 'A ação Painel: Controles não respondeu', 'Confira se o código compilou (Save and Compile) e se a ação tem a sub-ação Execute C# Code com o conteúdo de Painel-Controles.cs.');
-        else if (f.controles.versao < 2) ponha('controles', 2, 'O código da ação Painel: Controles está antigo', 'Cole de novo o conteúdo de Painel-Controles.cs na ação (resgates, resposta e perfil precisam da versão nova).');
+        if (!f.controles.achou) ponha('controles', 1, 'A ação Painel: Controles não respondeu', 'Confira se o código compilou (Save and Compile) e se a ação tem a sub-ação Execute C# Code com o conteúdo de Painel-Controles.cs. Se o log do Streamer.bot mostra “error CS0012”, o código está na versão 2, que não compila: cole de novo o conteúdo atual do arquivo.');
+        else if (f.controles.versao < 3) ponha('controles', 2, 'O código da ação Painel: Controles está antigo', 'Cole de novo o conteúdo de Painel-Controles.cs na ação (a versão 3 corrige o clipe, que impedia o código de compilar, e traz o modo escudo).');
         else ponha('controles', 0, 'O código de Painel: Controles está na versão certa');
       }
       if (f.nomes.includes('Painel: YouTube') && f.youtube) {
         const precisaDaVersao2 = f.config.youtubeInfo.ligado;
         if (!f.youtube.achou) ponha('youtube', 1, 'A ação Painel: YouTube não respondeu', 'Confira se o código compilou e é o de Painel-YouTube.cs.');
         else if (f.youtube.versao < 2 && precisaDaVersao2) ponha('youtube', 2, 'O código da ação Painel: YouTube está antigo (tags e descrição precisam da versão 3)', 'Cole de novo o conteúdo de Painel-YouTube.cs na ação.');
-        else if (f.youtube.versao < 4) ponha('youtube', 1, 'O código da ação Painel: YouTube está antigo (a versão 4 não reclama da categoria que a live já tem e avisa se o título ficou com %tituloLive%)', 'Cole de novo o conteúdo de Painel-YouTube.cs na ação e confira que ela NÃO tem a sub-ação antiga YouTube > Set Title (só a de código).');
+        else if (f.youtube.versao < 6) ponha('youtube', 1, 'O código da ação Painel: YouTube está antigo (a versão 6 não mexe numa live que já terminou e tenta trocar a categoria também pelo método que manda título, descrição e categoria juntos)', 'Cole de novo o conteúdo de Painel-YouTube.cs na ação e confira que ela NÃO tem a sub-ação antiga YouTube > Set Title (só a de código).');
         else ponha('youtube', 0, 'O código de Painel: YouTube está na versão certa');
       }
     }

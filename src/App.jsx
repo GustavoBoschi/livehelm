@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { assinarStreamerbot } from './streamerbot.js';
 import { PLATAFORMAS } from './plataformas.js';
-import { carregarAcoes, lerConectadas, notificarAtualizacao, youtubeComecou, NOME_DA_PLATAFORMA, PLATAFORMAS_DO_DOCK } from './acoes.js';
+import { carregarAcoes, informarEstadoDoObs, lerConectadas, notificarAtualizacao, youtubeComecou, NOME_DA_PLATAFORMA, PLATAFORMAS_DO_DOCK } from './acoes.js';
 import { ler, gravar } from './armazenamento.js';
 import { D20Ambar, IconePlataforma } from './Icones.jsx';
 import LivePanel from './LivePanel.jsx';
@@ -21,11 +21,13 @@ import PainelMultistream from './PainelMultistream.jsx';
 import Predefinicoes from './Predefinicoes.jsx';
 import ModosDoChat from './ModosDoChat.jsx';
 import BotaoMic from './BotaoMic.jsx';
+import LinksDoDock, { BotaoLinks } from './Links.jsx';
 import SaudeDoObs from './SaudeDoObs.jsx';
 import TempoDeLive from './TempoDeLive.jsx';
 import { useSaudeDoObs } from './useSaudeDoObs.js';
 import { lerConfig } from './configuracoes.js';
-import { estadoInicialDasLives, aplicarEventoDeLive, totalDeEspectadores, estaNoAr, estadoDoObs } from './lives.js';
+import { linksDoDock } from './links.js';
+import { estadoInicialDasLives, aplicarEventoDeLive, totalDeEspectadores, estaNoAr, estadoDoObs, inicioCoerente } from './lives.js';
 
 const ATUALIZACAO_MS = 15000; // de quanto em quanto tempo relê as ações e as plataformas conectadas
 const PAINEIS = [
@@ -90,6 +92,14 @@ export default function App() {
 
   // Quando o OBS começa ou para de transmitir, o estado das plataformas recomeça do zero: assim um início de live antigo não aparece na próxima.
   const obsAgora = estadoDoObs(saude);
+  // Com o OBS parado, o título do YouTube espera a próxima live (acoes.js); quando o OBS volta ao ar, o que ficou guardado é aplicado (o YouTube nem sempre avisa
+  // que a transmissão começou, então a volta do OBS também conta; a espera dá tempo de o Streamer.bot começar a monitorar a transmissão nova).
+  const obsInformado = useRef('desconhecida');
+  useEffect(() => {
+    informarEstadoDoObs(obsAgora);
+    if (obsInformado.current === 'parada' && obsAgora === 'no-ar') youtubeComecou(20000, 15000);
+    obsInformado.current = obsAgora;
+  }, [obsAgora]);
   useEffect(() => {
     if (obsAgora === 'desconhecida') return;
     if (estadoObsAnterior.current !== null && estadoObsAnterior.current !== obsAgora) setLives(estadoInicialDasLives());
@@ -99,6 +109,7 @@ export default function App() {
   const [menuPaineis, setMenuPaineis] = useState(false);
   const [paineis, setPaineis] = useState(() => ({ predefinicoes: true, live: true, tags: true, momentos: true, modos: true, inter: false, chat: true, saude: true, multistream: true, ...ler('paineis', {}) }));
   const [configAberta, setConfigAberta] = useState(false);
+  const [linksAberto, setLinksAberto] = useState(false);
 
   function alternarPainel(id) {
     const novos = { ...paineis, [id]: !paineis[id] };
@@ -152,9 +163,12 @@ export default function App() {
   const inicioDestinosMs = obsLigado && saude.msDestinos > 0 ? saude.lidoEm - saude.msDestinos : null;
   // O YouTube e a Kick só avisam no começo e a cada mudança: quem abriu o dock com a live já no ar pode não receber aviso nenhum, então os
   // destinos do multistream que estão no ar no OBS também valem como "no ar".
+  // O início que cada plataforma informou só vale se não for antes de o OBS começar (inicioCoerente): o YouTube às vezes informa minutos a mais.
+  const inicioDoObsMs = [inicioPrincipalMs, inicioDestinosMs].filter(Boolean).reduce((a, b) => Math.min(a, b), Infinity);
+  const informado = id => inicioCoerente(lives[id].inicioMs, Number.isFinite(inicioDoObsMs) ? inicioDoObsMs : null);
   const tempoDaPlataforma = id => (obsParado ? { noAr: false, inicioMs: null } : id === 'twitch'
-    ? { noAr: Boolean(inicioPrincipalMs) || estaNoAr(lives.twitch, agora), inicioMs: inicioPrincipalMs || lives.twitch.inicioMs || inicioDestinosMs }
-    : { noAr: estaNoAr(lives[id], agora) || Boolean(inicioDestinosMs), inicioMs: lives[id].inicioMs || inicioDestinosMs || inicioPrincipalMs });
+    ? { noAr: Boolean(inicioPrincipalMs) || estaNoAr(lives.twitch, agora), inicioMs: inicioPrincipalMs || informado('twitch') || inicioDestinosMs }
+    : { noAr: estaNoAr(lives[id], agora) || Boolean(inicioDestinosMs), inicioMs: informado(id) || inicioDestinosMs || inicioPrincipalMs });
 
   const aviso = recusa
     ? `O Streamer.bot recusou a conexão (${recusa}). Confira a senha nas configurações (bolinha de estado).`
@@ -162,7 +176,7 @@ export default function App() {
 
   return (
     <div id="dock">
-      <header className={`barra${micAtivo ? ' barra-com-mic' : ''}`}>
+      <header className={`barra${micAtivo || config.links.ligado ? ' barra-com-mic' : ''}`}>
         <button type="button" id="plataformas-todas" className={`global${todasAtivas ? ' global-ligado' : ''}`} aria-pressed={todasAtivas}
                 title={todasAtivas ? 'Desativar todas as plataformas' : 'Ativar todas as plataformas'} onClick={alternarTodas}>
           <D20Ambar aceso={todasAtivas} largura={19} />
@@ -196,6 +210,7 @@ export default function App() {
           )}
         </span>
         {micAtivo && <BotaoMic saude={saude} obs={config.obs} entrada={config.mic.entrada.trim()} />}
+        {config.links.ligado && <BotaoLinks aberto={linksAberto} aoAlternar={() => { setMenuPaineis(false); setLinksAberto(a => !a); }} />}
         <button type="button" id="paineis-botao" className="bolinha-paineis" aria-expanded={menuPaineis} title="Painéis: mostrar ou esconder" aria-label="Painéis"
                 onClick={e => { e.stopPropagation(); setMenuPaineis(a => !a); }} />
         <button type="button" className={`estado estado-${estado}`} id="estado-conexao" title={`${dicaDoEstado} · clique para abrir as configurações`} aria-label="Configurações"
@@ -213,6 +228,7 @@ export default function App() {
         )}
       </header>
       {config.saude.ligada && paineis.saude && <SaudeDoObs saude={saude} />}
+      {config.links.ligado && linksAberto && <LinksDoDock links={linksDoDock(config.links.itens)} aoFechar={() => setLinksAberto(false)} />}
       {aviso && <p className="aviso aviso-faixa" id="aviso-conexao">{aviso}</p>}
       <AvisoAnuncio nomesDeAcoes={nomesDeAcoes} />
       {configAberta ? <Configuracoes conectado={conectado} recusa={recusa} ativas={ativas} onVoltar={() => setConfigAberta(false)} /> : (

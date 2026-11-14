@@ -7,7 +7,7 @@ import { assinarStreamerbot } from './streamerbot.js';
 import { passaNaAba } from './alertas.js';
 import { lerConfig } from './configuracoes.js';
 import { plataformaDe } from './plataformas.js';
-import { decidirResgate, executarChat, responderMensagem, temControlesAgora, NOME_DA_PLATAFORMA, PLATAFORMAS_DO_DOCK } from './acoes.js';
+import { decidirResgate, definirModoDoChat, executarChat, responderMensagem, temControlesAgora, NOME_DA_PLATAFORMA, PLATAFORMAS_DO_DOCK } from './acoes.js';
 import { ler, gravar } from './armazenamento.js';
 import FilaDeResgates from './FilaDeResgates.jsx';
 import PerfilCard from './PerfilCard.jsx';
@@ -15,6 +15,8 @@ import { IconePlataforma, Traco } from './Icones.jsx';
 import { PopupPunicoes } from './Listas.jsx';
 import { registrar } from './punicoes.js';
 import { lembrarResgate, mensagemRepeteResgate, mesmoTextoDoResgate } from './resgates.js';
+import { COMANDOS_DE_MODO, interpretarModoDoChat } from './comandosDeModo.js';
+import { comandosDoChat, sugestoesDeComando, textoDoComando } from './comandosDoChat.js';
 import { copiarTexto, corLegivel, duracao, hora, partesDaMensagem, simplificar } from './texto.js';
 
 const MAX_ITENS = 400;
@@ -22,7 +24,7 @@ const MAX_FIXADAS = 3;
 const STATUS_MS = 9000;
 const PERTO_DO_FIM_PX = 24;   // até essa distância do fim da lista ela segue as mensagens novas
 const SILENCIO_RAPIDO_S = 300; // o silêncio do botão da linha
-const COMANDOS = 'Comandos: /ban nome · /timeout nome segundos · /limpar (só Twitch) · /limpardock (só o chat daqui)';
+const COMANDOS = 'Comandos: /ban nome [motivo] · /timeout nome segundos [motivo] · /limpar (só Twitch) · /limpardock (só o chat daqui) · modos da Twitch: ' + COMANDOS_DE_MODO;
 
 const ABAS = [
   { id: 'tudo', dica: 'Tudo: mostra as mensagens de todas as plataformas e os alertas principais (seguidor, sub, presente, apoio e raid), e envia para as ativas no alto', icone: 'globo' },
@@ -42,6 +44,10 @@ const lerFila = () => {
   return Array.isArray(f) ? f.filter(i => i && i.uid && i.nome).map(i => (i.estado === 'enviando' ? { ...i, estado: 'pendente' } : i)).slice(-MAX_FILA) : [];
 };
 
+// O motivo que vai para a plataforma no ban e no silêncio: o que foi escrito, ou o padrão (a Twitch mostra o motivo ao banido e no registro de moderação).
+const MOTIVO_PADRAO = 'Violar as Regras do Chat';
+const motivoDoBan = texto => String(texto || '').trim().slice(0, 300) || MOTIVO_PADRAO;
+
 // Comandos da caixa: devolve { verbo, args, plataformas } (plataformas que aceitam) ou { erro }.
 function interpretarComando(texto) {
   const partes = texto.slice(1).split(/\s+/).filter(Boolean);
@@ -50,12 +56,13 @@ function interpretarComando(texto) {
   switch (palavra) {
     case 'ban':
     case 'banir':
-      return nome ? { verbo: 'banir', args: { usuario: nome }, plataformas: PLATAFORMAS_DO_DOCK } : { erro: 'Use /ban nome' };
+      return nome ? { verbo: 'banir', args: { usuario: nome, motivo: motivoDoBan(partes.slice(2).join(' ')) }, plataformas: PLATAFORMAS_DO_DOCK } : { erro: 'Use /ban nome [motivo]' };
     case 'timeout':
     case 'silenciar': {
-      if (!nome) return { erro: 'Use /timeout nome segundos' };
+      if (!nome) return { erro: 'Use /timeout nome segundos [motivo]' };
       const s = parseInt(partes[2], 10);
-      return { verbo: 'silenciar', args: { usuario: nome, segundos: s > 0 ? s : 600 }, plataformas: PLATAFORMAS_DO_DOCK };
+      const motivo = partes.slice(Number.isFinite(s) ? 3 : 2).join(' ');
+      return { verbo: 'silenciar', args: { usuario: nome, segundos: s > 0 ? s : 600, motivo: motivoDoBan(motivo) }, plataformas: PLATAFORMAS_DO_DOCK };
     }
     case 'limpar':
     case 'clear':
@@ -90,8 +97,8 @@ const Linha = memo(function Linha({ item, aoMenu, aoRapida, aoRetida, aoResponde
           <b className="nome">{item.nome}</b>
           <span className="dois-pontos">: </span>
           <span className="texto">{item.texto}</span>
-          {item.motivo && <span className="alerta-detalhe">{item.motivo}</span>}
-          {item.status === 'pendente' || item.status === 'enviando' ? (
+          {item.motivo && !/^\s*automod\s*$/i.test(item.motivo) && <span className="alerta-detalhe">{item.motivo}</span>}
+          {item.semId ? <span className="retida-status" title="Esta mensagem chegou sem identificação, então não dá para permitir ou negar por aqui: decida no AutoMod da Twitch" /> : item.status === 'pendente' || item.status === 'enviando' ? (
             <span className="retida-botoes">
               <button type="button" className="retida-permitir" disabled={item.status === 'enviando'} onClick={() => aoRetida('permitir', item)}>Permitir</button>
               <button type="button" className="retida-negar" disabled={item.status === 'enviando'} onClick={() => aoRetida('negar', item)}>Negar</button>
@@ -147,10 +154,13 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
   const [filtro, setFiltro] = useState('tudo');
   const [novas, setNovas] = useState(0);
   const [texto, setTexto] = useState('');
+  const [comandoEscolhido, setComandoEscolhido] = useState(0); // a linha marcada na lista de comandos que aparece com "/"
+  const [listaDeComandosFechada, setListaDeComandosFechada] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [status, setStatus] = useState(null);       // { texto, erro }
   const [menu, setMenu] = useState(null);           // { item, x, y }
-  const [confirmacao, setConfirmacao] = useState(null); // { texto, aoConfirmar }
+  const [confirmacao, setConfirmacao] = useState(null); // { texto, aoConfirmar, campo? } (com `campo`, uma caixinha de texto cujo valor vai para aoConfirmar)
+  const [motivoDaConfirmacao, setMotivoDaConfirmacao] = useState('');
   const [busca, setBusca] = useState('');
   const [barraAberta, setBarraAberta] = useState(false);
   const [usuarioFiltro, setUsuarioFiltro] = useState(null); // { plataforma, nome (minúsculo), exibir }
@@ -260,7 +270,7 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
           break;
         }
         case 'retida': {
-          const item = { uid: ++contador.current, tipo: 'retida', plataforma: ev.plataforma, msgId: ev.id, nome: ev.nome, texto: ev.texto, motivo: ev.motivo, status: 'pendente', hora: hora() };
+          const item = { uid: ++contador.current, tipo: 'retida', plataforma: ev.plataforma, msgId: ev.id, semId: Boolean(ev.semId), nome: ev.nome, texto: ev.texto, motivo: ev.motivo, status: 'pendente', hora: hora() };
           setItens(l => acrescenta(l, [item]));
           contaNovas([item]);
           break;
@@ -292,6 +302,16 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
     const el = lista.current;
     if (el && seguindo.current) el.scrollTop = el.scrollHeight;
   }, [visiveis, filtro, oculto, fila]);
+
+  // Ao mexer no tamanho do dock (a janela do OBS) a lista ganha ou perde altura sem que chegue mensagem nenhuma: quem estava no fim continua no fim (senão o chat ficava mostrando mensagens do meio
+  // da lista até a próxima chegar).
+  useEffect(() => {
+    const el = lista.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const observador = new ResizeObserver(() => { if (seguindo.current) el.scrollTop = el.scrollHeight; });
+    observador.observe(el);
+    return () => observador.disconnect();
+  }, [filtro, oculto]);
 
   function aoRolar() {
     const el = lista.current;
@@ -351,17 +371,18 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
 
   // ---- Moderação ----
 
-  async function moderar(verbo, item, segundos = 0) {
+  async function moderar(verbo, item, segundos = 0, motivo = '') {
     const infinitivo = { apagar: 'apagar', silenciar: 'silenciar', banir: 'banir' }[verbo];
-    const erro = await executarChat(verbo, { plataforma: item.plataforma, usuario: item.login || item.nome, usuarioId: item.userId, mensagemId: item.msgId, segundos });
+    const erro = await executarChat(verbo, { plataforma: item.plataforma, usuario: item.login || item.nome, usuarioId: item.userId, mensagemId: item.msgId, segundos, motivo: motivoDoBan(motivo) });
     if (erro) { avisar(`Não consegui ${infinitivo}: ${erro}`); return; }
     if (verbo === 'apagar') setItens(l => l.map(i => (i.uid === item.uid ? { ...i, apagada: true } : i)));
     else registrarPunicao({ plataforma: item.plataforma, nome: item.nome, banido: verbo === 'banir', segundos, login: item.login, userId: item.userId });
   }
-  // Banir pede confirmação dentro da página (não dá pra contar com a janela de confirmar do navegador no OBS).
+  // Banir pede confirmação dentro da página (não dá pra contar com a janela de confirmar do navegador no OBS), com uma caixinha para o motivo: vazia, vai o padrão.
   function pedirBanir(item) {
     setMenu(null);
-    setConfirmacao({ texto: `Banir ${item.nome} (${NOME_DA_PLATAFORMA[item.plataforma] || item.plataforma})?`, aoConfirmar: () => moderar('banir', item) });
+    setMotivoDaConfirmacao('');
+    setConfirmacao({ texto: `Banir ${item.nome} (${NOME_DA_PLATAFORMA[item.plataforma] || item.plataforma})?`, campo: `Motivo (vazio: ${MOTIVO_PADRAO})`, aoConfirmar: motivo => moderar('banir', item, 0, motivo) });
   }
   // Permitir ou negar uma mensagem retida pelo AutoMod: a ação do Streamer.bot responde se aceitou; o evento de atualização confirma depois.
   async function moderarRetida(verbo, item) {
@@ -436,6 +457,17 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
 
   // ---- Envio ----
 
+  // Limpa a lista de resgates INTEIRA, inclusive os pendentes (os que a Twitch não deixa cumprir ou reembolsar por aqui, por exemplo, ficariam para sempre). Com pendentes pede
+  // confirmação: eles só somem do dock, na Twitch continuam na fila de resgates.
+  function limparResgates() {
+    if (fila.length === 0) { avisar('Não há resgates para limpar', false); return; }
+    const total = fila.length;
+    const pendentes = fila.filter(i => i.estado === 'pendente' || i.estado === 'enviando').length;
+    const limpar = () => { setFila([]); avisar(`Resgates limpos (${total})`, false); };
+    if (pendentes === 0) { limpar(); return; }
+    setConfirmacao({ texto: `Limpar os resgates? ${pendentes === 1 ? '1 ainda está pendente' : `${pendentes} ainda estão pendentes`}: eles só somem daqui, na Twitch continuam na fila.`, aoConfirmar: limpar });
+  }
+
   async function enviar() {
     const t = texto.trim();
     if (!t || enviando) return;
@@ -446,6 +478,24 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
       setTexto('');
       avisar('Chat do LiveHelm limpo (nada foi apagado nas plataformas)', false);
       return;
+    }
+    // /limparresgates: tira da aba Resgates os que já foram resolvidos (cumprido, reembolsado, automático); os que ainda esperam ficam.
+    if (/^\/limparresgates?\s*$/i.test(t)) { limparResgates(); setTexto(''); return; }
+    // /emotes, /subs, /lento, /seguidores e /escudo: modos do chat da Twitch (ação Painel: Controles); a Kick e o YouTube não têm esses controles no Streamer.bot.
+    if (t.startsWith('/')) {
+      const modo = interpretarModoDoChat(t, ler('modosDoChat', {}), lerConfig().modosDoChat);
+      if (modo) {
+        if (modo.erro) { avisar(modo.erro); return; }
+        if (!temControlesAgora()) { avisar('Os modos do chat precisam da ação Painel: Controles no Streamer.bot (veja as Instruções).'); return; }
+        setEnviando(true);
+        const r = await definirModoDoChat(modo.modo, modo.ligar, { segundos: modo.segundos, minutos: modo.minutos });
+        setEnviando(false);
+        if (r.nivel === 2) { avisar(`${modo.rotulo}: ${r.texto}`); return; }
+        gravar('modosDoChat', { ...ler('modosDoChat', {}), [modo.modo]: modo.ligar }); // lembrado para o próximo comando sem argumento alternar
+        setTexto('');
+        avisar(`${modo.rotulo} ${modo.ligar ? 'ligado' : 'desligado'} na Twitch${modo.modo === 'lento' && modo.ligar ? ` (${modo.segundos} s)` : modo.modo === 'seguidores' && modo.ligar && modo.minutos > 0 ? ` (${modo.minutos} min)` : ''}`, false);
+        return;
+      }
     }
     // Respondendo a uma mensagem: sai só para a plataforma dela (comando com / continua sendo comando).
     if (respondendo && !t.startsWith('/')) {
@@ -493,6 +543,26 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
     }
   }
 
+  const plataformasDoChat = Array.isArray(filtro) ? filtro : PLATAFORMAS_DO_DOCK.filter(p => ativas[p]);
+  const sugestoes = listaDeComandosFechada || respondendo ? [] : sugestoesDeComando(texto, comandosDoChat(plataformasDoChat, { temControles: temControlesAgora() }));
+  const marcado = Math.min(comandoEscolhido, Math.max(0, sugestoes.length - 1));
+  function escolherComando(c) {
+    setTexto(textoDoComando(c));
+    setComandoEscolhido(0);
+    document.getElementById('caixa-mensagem')?.focus();
+  }
+  function aoTeclar(e) {
+    if (sugestoes.length > 0) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setComandoEscolhido((marcado + 1) % sugestoes.length); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setComandoEscolhido((marcado - 1 + sugestoes.length) % sugestoes.length); return; }
+      if (e.key === 'Tab') { e.preventDefault(); escolherComando(sugestoes[marcado]); return; }
+      if (e.key === 'Escape') { setListaDeComandosFechada(true); return; }
+      // Enter com o nome ainda incompleto completa o comando marcado em vez de enviar; com o nome inteiro, envia.
+      if (e.key === 'Enter' && texto.trim().toLowerCase() !== `/${sugestoes[marcado].nome}`) { e.preventDefault(); escolherComando(sugestoes[marcado]); return; }
+    }
+    if (e.key === 'Enter') enviar();
+    else if (e.key === 'Escape' && respondendo) setRespondendo(null);
+  }
   const pendentesDaFila = fila.filter(i => i.estado === 'pendente' || i.estado === 'enviando').length;
   const pendentesDoAutomod = itens.filter(i => i.tipo === 'retida' && (i.status === 'pendente' || i.status === 'enviando')).length;
   const abas = [...ABAS, ...(chatExtra.resgates ? [{ ...ABA_RESGATES, contagem: pendentesDaFila }] : []), ...(chatExtra.automod ? [{ ...ABA_AUTOMOD, contagem: pendentesDoAutomod }] : [])];
@@ -552,7 +622,7 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
       )}
 
       <div className="lista-chat" ref={lista} onScroll={aoRolar} id="lista-chat">
-        {filtro === 'resgates' ? <FilaDeResgates fila={fila} aoDecidir={decidirResgateDaFila} conectado={conectado} semAcao={!temControlesAgora()} /> : <>
+        {filtro === 'resgates' ? <FilaDeResgates fila={fila} aoDecidir={decidirResgateDaFila} aoLimpar={limparResgates} conectado={conectado} semAcao={!temControlesAgora()} /> : <>
           {vazio && <p className="vazio">{!conectado ? 'As mensagens aparecem aqui quando o Streamer.bot estiver conectado.' : termo || usuarioFiltro ? 'Nenhuma mensagem encontrada.' : filtro === 'automod' ? 'Nenhuma mensagem retida pelo AutoMod.' : 'Nenhuma mensagem ainda.'}</p>}
           {visiveis.map(i => <Linha key={i.uid} item={i} aoMenu={abrirMenu} aoRapida={acaoRapida} aoRetida={moderarRetida} aoResponder={i.tipo === 'chat' ? iniciarResposta : undefined} />)}
         </>}
@@ -579,9 +649,14 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
       )}
 
       {confirmacao && (
-        <div className="confirmacao" id="confirmacao">
+        <div className={`confirmacao${confirmacao.campo ? ' confirmacao-com-campo' : ''}`} id="confirmacao">
           <span>{confirmacao.texto}</span>
-          <button type="button" className="perigo" onClick={() => { const f = confirmacao.aoConfirmar; setConfirmacao(null); f(); }}>Sim</button>
+          {confirmacao.campo && (
+            <input id="confirmacao-motivo" type="text" value={motivoDaConfirmacao} placeholder={confirmacao.campo} maxLength={300} autoFocus spellCheck
+                   onChange={e => setMotivoDaConfirmacao(e.target.value)}
+                   onKeyDown={e => { if (e.key === 'Enter') { const f = confirmacao.aoConfirmar; setConfirmacao(null); f(motivoDaConfirmacao.trim()); } else if (e.key === 'Escape') setConfirmacao(null); }} />
+          )}
+          <button type="button" className="perigo" onClick={() => { const f = confirmacao.aoConfirmar; setConfirmacao(null); f(motivoDaConfirmacao.trim()); }}>Sim</button>
           <button type="button" onClick={() => setConfirmacao(null)}>Não</button>
         </div>
       )}
@@ -597,8 +672,19 @@ export default function ChatPanel({ ativas, conectado, oculto = false }) {
         </div>
       )}
       <div className="envio">
-        <input id="caixa-mensagem" type="text" value={texto} placeholder={placeholder} title={COMANDOS} spellCheck
-               onChange={e => setTexto(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') enviar(); else if (e.key === 'Escape' && respondendo) setRespondendo(null); }} />
+        {sugestoes.length > 0 && (
+          <ul className="comandos-lista" id="comandos-lista" role="listbox" aria-label="Comandos">
+            {sugestoes.map((c, i) => (
+              <li key={c.nome} role="option" aria-selected={i === marcado} className={`comando-item${i === marcado ? ' comando-marcado' : ''}${c.semAcao ? ' comando-sem-acao' : ''}`} id={`comando-${c.nome}`}
+                  onMouseDown={e => { e.preventDefault(); escolherComando(c); }}>
+                <b>{c.uso}</b>
+                <span>{c.descricao}{c.semAcao ? ' (precisa da ação Painel: Controles)' : ''}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <input id="caixa-mensagem" type="text" value={texto} placeholder={placeholder} title={COMANDOS} spellCheck autoComplete="off"
+               onChange={e => { setTexto(e.target.value); setComandoEscolhido(0); setListaDeComandosFechada(false); }} onKeyDown={aoTeclar} />
         <button type="button" id="botao-enviar" disabled={enviando || !conectado} onClick={enviar}>Enviar</button>
       </div>
     </section>

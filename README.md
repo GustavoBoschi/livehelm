@@ -72,6 +72,7 @@ no seu computador: não há servidor, conta, cadastro nem chave de API.
   e punições da sessão e, na Twitch, a idade da conta, se segue e se é sub, mod ou VIP, com o link do perfil para copiar.
 - **Mudo do microfone** (desligado por padrão): uma caixinha sempre visível no alto, ao lado esquerdo da bolinha azul (verde com o microfone aberto, vermelha no mudo), que coloca no mudo (e tira) o microfone que você escolheu nas configurações (e **pisca, com um letreiro "Você está no mudo!", quando você fala com ele no mudo**; um botão de teste mostra até onde chega a sua voz), pelo
   OBS, em vez de procurá-lo no mixer.
+- **Links das redes** (desligado por padrão): um botão no alto, ao lado esquerdo da bolinha azul, que abre uma janelinha só com os símbolos das suas redes (Twitch, YouTube, Kick, TikTok, Instagram, Discord, X, GitHub, LivePix e um site). Um clique abre o endereço no navegador; o botão direito copia o link. Os endereços são digitados nas configurações, e as redes em branco não aparecem.
 - **Instala em dois cliques** (Windows) e **não precisa de nada instalado** além do OBS e do Streamer.bot.
 - **Leve e à prova de erro:** é só uma página; se algo falhar, o OBS continua funcionando.
 - **Gratuito e com código disponível**, em React, com testes e documentação para quem quiser usar, estudar e adaptar.
@@ -262,7 +263,10 @@ Mensagens e alertas das três plataformas num feed só, com abas **Tudo**, **Twi
   Silenciar 1 ou 10 minutos, Banir, Fixar e Ver só este usuário.
 - **Enviar mensagens:** a caixa de baixo envia para as plataformas ligadas (ou só para a da aba aberta). Aceita comandos:
   `/ban nome`, `/timeout nome segundos` (10 min se não disser o tempo), `/limpar` (limpa o chat da Twitch) e `/limpardock` (esvazia só a lista de
-  mensagens do LiveHelm; não apaga nada nas plataformas).
+  mensagens do LiveHelm; não apaga nada nas plataformas). Os **modos da Twitch** também saem por comando (precisam da ação `Painel: Controles`): `/emotes`,
+  `/subs`, `/lento 30`, `/seguidores 30` e `/escudo`, com `on` ou `off` para ligar ou desligar (sem nada, alterna). A Kick e o YouTube não têm esses controles no Streamer.bot.
+  Ao digitar `/`, uma lista mostra os comandos que valem para o chat aberto (só os da Twitch aparecem na aba da Twitch, por exemplo): setas escolhem, **Tab** ou **Enter**
+  completam, **Esc** fecha. A aba **Resgates** tem o botão **Limpar tudo** (e o comando `/limparresgates`): esvazia a lista, inclusive os pendentes (com confirmação; na Twitch eles continuam na fila).
 - **Texto de resgate sem repetir:** a mensagem em destaque (e a recompensa que pede texto) aparece só como resgate, com o texto; a mensagem igual do
   chat, que chega junto, não entra de novo.
 - **Busca** (lupa ou `Ctrl+F`): filtra por nome ou texto, sem diferenciar maiúsculas nem acentos. **Ver só este usuário** mostra só as
