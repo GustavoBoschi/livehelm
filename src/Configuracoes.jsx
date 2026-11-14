@@ -182,7 +182,7 @@ export default function Configuracoes({ conectado, recusa, ativas, onVoltar }) {
           <ul className="verificacao" id="verificacao-lista">
             {verificacao.map(l => (
               <li key={l.id} className={`nivel-${l.nivel}`}>
-                <b>{placar[l.nivel]}</b> {l.texto}
+                <span><b>{placar[l.nivel]}</b> {l.texto}</span>
                 {l.ajuda && <span className="verificacao-ajuda">{l.ajuda}</span>}
               </li>
             ))}

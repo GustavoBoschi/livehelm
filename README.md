@@ -56,8 +56,11 @@ no seu computador: não há servidor, conta, cadastro nem chave de API.
   (símbolo da Twitch), um clique também cria um clipe da live na Twitch e mostra o link.
 - **Predefinições de live** (desligadas por padrão): guarde um modo (título, categoria, tags da Twitch e, se quiser, a categoria do YouTube) e troque de live
   com um clique, sem redigitar tudo.
-- **Modos do chat da Twitch** (desligados por padrão): só emotes, modo lento, só seguidores e só inscritos num toque, sem ir ao site da Twitch. O Streamer.bot
-  só tem esses controles na Twitch; a Kick e o YouTube não têm.
+- **Modos do chat da Twitch** (desligados por padrão): só emotes, modo lento, só seguidores e só inscritos num toque, sem ir ao site da Twitch. Também saem por
+  comando no campo do chat (`/emotes`, `/subs`, `/lento 30`, `/seguidores 30` e `/escudo`, para o modo escudo). O Streamer.bot só tem esses controles na Twitch; a Kick
+  e o YouTube não têm.
+- **Comandos com lista:** ao digitar `/` no campo do chat aparece a lista dos comandos que valem para o chat aberto, com o que cada um faz.
+- **Motivo do ban e do silêncio:** a confirmação do Banir tem um campo para o motivo (ou `/ban nome motivo`); sem motivo, vai "Violar as Regras do Chat".
 - **Verificar configuração:** um botão nas configurações que confere tudo o que você ligou (ações do Streamer.bot com o nome exato e a versão do código delas, plataformas,
   OBS e microfone) e mostra ✓, ! ou ✕ com o que fazer.
 - **Aba Resgates** (desligada por padrão): a fila de resgates de pontos da Twitch, ao lado de Alertas, com **Cumprir** e **Reembolsar** e o número dos pendentes. Só entram os
@@ -133,10 +136,27 @@ Da esquerda para a direita:
   WebSocket dele conectado): quando ele para de transmitir, os três tempos voltam a 00:00 e os espectadores a 0 na hora, sem esperar o aviso de
   cada plataforma (que a Kick e o YouTube nem sempre mandam). Sem a leitura do OBS, valem os avisos das plataformas.
 - Logo abaixo, a **linha de saúde do OBS** (veja [Saúde do OBS e Multistream](#saúde-do-obs-e-multistream)).
+- O **microfone** (opcional): verde com o microfone aberto, vermelho no mudo; um clique coloca ou tira do mudo a entrada escolhida nas configurações. Com o
+  aviso ligado, ele pisca e mostra "Você está no mudo!" quando você fala com o microfone no mudo.
+- O **elo de corrente** (opcional) abre os **links das suas redes**: um clique abre o endereço no navegador e o botão direito copia o link.
 - A **bolinha azul** abre a lista de painéis, para mostrar ou esconder cada um (a escolha fica salva).
 - A **bolinha de estado**: **verde** (Streamer.bot e todas as plataformas ativas conectados), **amarela** (falta alguma plataforma
   ativa) ou **vermelha** (sem Streamer.bot, ou ele recusou a conexão). Passe o mouse para ver o motivo; clique para abrir as
   configurações.
+
+<p align="center">
+  <img src="docs/imagens/links.png" alt="A janelinha dos links das redes aberta sobre o dock, com o microfone e o elo de corrente no alto" width="380">
+</p>
+
+### Predefinições de live
+
+Um painel (desligado por padrão) para trocar de "modo" de live num clique. **Guardar** salva o título e a categoria do painel Live e as tags que a Twitch tem agora
+com o nome que você der; clicar numa predefinição aplica tudo nas plataformas ativas, na hora. Usar o mesmo nome atualiza a predefinição. Cada uma pode fixar a
+categoria do YouTube (senão valem as regras das configurações).
+
+<p align="center">
+  <img src="docs/imagens/predefinicoes.png" alt="Painel de predefinições com três modos de live guardados" width="380">
+</p>
 
 ### Live: título e categoria
 
@@ -195,6 +215,12 @@ Marca pontos da live para você achar depois (para clipes, cortes, capítulos).
   vazio, vale o `Clipe N` de sempre.
 - A numeração e a lista da sessão ficam lembradas por arquivo. O arquivo vai para a pasta `Clipes` ao lado do dock, ou para a
   pasta que você escolher (um caminho completo de uma unidade local, como `C:\Clipes`).
+- **Clipe na Twitch** (opcional, com a ação `Painel: Controles`): cria um clipe da live na Twitch e mostra o link, com **Copiar link**.
+
+### Modos do chat (Twitch)
+
+Um painel (desligado por padrão) com **só emotes**, **modo lento**, **só seguidores** e **só inscritos**, cada um num botão, mais o **modo escudo** por comando. Os
+mesmos modos saem pelo campo do chat (veja [Chat](#chat)). Como o Streamer.bot não avisa o modo atual, o painel mostra o que o dock enviou por último.
 
 ### Enquetes e previsões (Twitch)
 
@@ -214,8 +240,8 @@ Duas coisas separadas, cada uma com o seu interruptor em **Configurações**:
 - **Saúde do OBS** (vem ligada; só lê o OBS): uma linha pequena logo abaixo da barra com **fps**, **CPU** e **upload** e, no fim, o
   estado da live: **Live On** (no ar e sem problemas), **Live Off** (nada no ar) ou, em português simples, o que está acontecendo (a
   internet oscilando, o PC com dificuldade de codificar o vídeo, o OBS travando). O **Live On/Off** fica sempre no mesmo lugar e o aviso aparece
-  **ao lado dele**, em texto curto e numa linha só: a linha nunca cresce, então o chat e os painéis de baixo não se mexem quando a live trava
-  (antes o aviso quebrava em várias linhas e empurrava tudo, parecendo uma mensagem nova). Se faltar espaço o texto corta com "…"; passe o mouse
+  **ao lado dele**, em texto curto e numa linha só: a linha nunca cresce, então o chat e os painéis de baixo não se mexem quando a live trava.
+  Se faltar espaço o texto corta com "…"; passe o mouse
   sobre ele para ver o aviso completo e o que ele quer dizer.
 - **Painel de Multistream** (vem **desligado**, porque os botões mexem na live): **Iniciar lives** e **Parar lives**, com confirmação, que
   fazem o mesmo que Iniciar e Parar transmissão do OBS. Os destinos do plugin de multistream seguem junto quando ele está com
@@ -228,7 +254,8 @@ plugin. A forma recomendada de montar: a **Twitch** como transmissão do própri
 
 ### Chat
 
-Mensagens e alertas das três plataformas num feed só, com abas **Tudo**, **Twitch**, **Kick**, **YouTube** e **Alertas**.
+Mensagens e alertas das três plataformas num feed só, com abas **Tudo**, **Twitch**, **Kick**, **YouTube** e **Alertas** e, se você ligar nas configurações,
+**Resgates** e **AutoMod**. Se você estava no fim da lista, ela continua no fim quando a janela do dock muda de tamanho.
 
 <p align="center">
   <img src="docs/imagens/chat.png" alt="O chat unificado com mensagens e alertas" width="340">
@@ -254,19 +281,50 @@ Mensagens e alertas das três plataformas num feed só, com abas **Tudo**, **Twi
 <p align="center">
   <img src="docs/imagens/aviso-anuncio.png" alt="O aviso de anúncio no alto do dock, com a contagem e o botão Adiar 5 min" width="340">
 </p>
+
 - **AutoMod da Twitch:** a mensagem que o AutoMod segurou para revisão aparece no feed (abas Tudo, Alertas e Twitch) numa faixa âmbar,
-  com o autor, o texto, o motivo e os botões **Permitir** e **Negar**. Depois que alguém decide, a faixa mostra o resultado. Pede o
-  código novo da ação `Painel: Chat`. Kick e YouTube não têm isso no Streamer.bot.
+  com o autor, o texto, o motivo e os botões **Permitir** e **Negar**. Depois que alguém decide, a faixa mostra o resultado. Se o aviso do
+  Streamer.bot vier sem o código da mensagem, ela aparece assim mesmo, sem os botões. A aba **AutoMod** (opcional) mostra só essas mensagens.
+  Pede o código novo da ação `Painel: Chat`. Kick e YouTube não têm isso no Streamer.bot.
 - **Sub de presente:** o alerta diz quem presenteou e **para quem foi** (em presente em massa, a quantidade e os primeiros nomes).
-- **Moderação:** passando o mouse numa mensagem aparecem **Banir** (com confirmação), **Silenciar 5 min** e **Apagar** (não existe
-  no YouTube), mais o **⋮** com todas as opções. O botão direito abre o mesmo menu: Mencionar, Copiar mensagem, Apagar,
-  Silenciar 1 ou 10 minutos, Banir, Fixar e Ver só este usuário.
+- **Moderação:** passando o mouse numa mensagem aparecem **Banir** (com confirmação), **Silenciar 5 min**, **Apagar** (não existe
+  no YouTube) e **Responder**, mais o **⋮** com todas as opções. O botão direito abre o mesmo menu: Mencionar, Responder, Ver perfil, Copiar mensagem,
+  Apagar, Silenciar 1 ou 10 minutos, Banir, Fixar e Ver só este usuário. A confirmação do Banir tem um campo para o **motivo**; vazio, vai
+  "Violar as Regras do Chat".
+
+<p align="center">
+  <img src="docs/imagens/banir.png" alt="A confirmação do Banir com o campo do motivo preenchido" width="340">
+</p>
+
+- **Responder e ver perfil:** responda a uma mensagem nas três plataformas (botão ↪ da linha, menu da mensagem ou cartão do perfil). Na Twitch e na Kick a
+  resposta fica ligada à mensagem (com a ação `Painel: Controles`); no YouTube, que não tem resposta, sai com @nome. **Ver perfil** abre um cartão com
+  foto, selos, mensagens e punições da sessão e, na Twitch, a idade da conta, se segue e se é sub, mod ou VIP, com **Copiar link do perfil** (o dock nunca
+  abre o navegador sozinho).
+
+<p align="center">
+  <img src="docs/imagens/perfil.png" alt="O cartão do perfil de uma pessoa da Twitch, com selos, idade da conta e os botões Responder, Ver só este usuário e Copiar link" width="340">
+</p>
+
+- **Aba Resgates** (opcional, só Twitch): a fila dos resgates de pontos que chegaram com o dock aberto, com **Cumprir** e **Reembolsar** e o número dos
+  pendentes. **Limpar tudo** (ou `/limparresgates`) esvazia a lista, inclusive os pendentes (com confirmação; na Twitch eles continuam na fila). A Twitch só
+  deixa resolver por aqui os resgates das recompensas criadas pelo Streamer.bot (veja [Limites conhecidos](#limites-conhecidos)).
+
+<p align="center">
+  <img src="docs/imagens/resgates.png" alt="A aba Resgates com um resgate cumprido e outro pendente, com os botões Cumprir e Reembolsar" width="340">
+</p>
+
 - **Enviar mensagens:** a caixa de baixo envia para as plataformas ligadas (ou só para a da aba aberta). Aceita comandos:
-  `/ban nome`, `/timeout nome segundos` (10 min se não disser o tempo), `/limpar` (limpa o chat da Twitch) e `/limpardock` (esvazia só a lista de
-  mensagens do LiveHelm; não apaga nada nas plataformas). Os **modos da Twitch** também saem por comando (precisam da ação `Painel: Controles`): `/emotes`,
-  `/subs`, `/lento 30`, `/seguidores 30` e `/escudo`, com `on` ou `off` para ligar ou desligar (sem nada, alterna). A Kick e o YouTube não têm esses controles no Streamer.bot.
-  Ao digitar `/`, uma lista mostra os comandos que valem para o chat aberto (só os da Twitch aparecem na aba da Twitch, por exemplo): setas escolhem, **Tab** ou **Enter**
-  completam, **Esc** fecha. A aba **Resgates** tem o botão **Limpar tudo** (e o comando `/limparresgates`): esvazia a lista, inclusive os pendentes (com confirmação; na Twitch eles continuam na fila).
+  `/ban nome [motivo]`, `/timeout nome segundos [motivo]` (10 min se não disser o tempo), `/limpar` (limpa o chat da Twitch), `/limparresgates` e `/limpardock`
+  (esvazia só a lista de mensagens do LiveHelm; não apaga nada nas plataformas). Os **modos da Twitch** também saem por comando (precisam da ação
+  `Painel: Controles`): `/emotes`, `/subs`, `/lento 30`, `/seguidores 30` e `/escudo`, com `on` ou `off` para ligar ou desligar (sem nada, alterna). A Kick e o
+  YouTube não têm esses controles no Streamer.bot.
+- **Lista de comandos:** ao digitar `/`, uma lista mostra os comandos que valem para o chat aberto (só os da Twitch aparecem na aba da Twitch, por exemplo):
+  setas escolhem, **Tab** ou **Enter** completam, **Esc** fecha.
+
+<p align="center">
+  <img src="docs/imagens/comandos.png" alt="A lista de comandos aberta sobre o campo do chat depois de digitar uma barra" width="340">
+</p>
+
 - **Texto de resgate sem repetir:** a mensagem em destaque (e a recompensa que pede texto) aparece só como resgate, com o texto; a mensagem igual do
   chat, que chega junto, não entra de novo.
 - **Busca** (lupa ou `Ctrl+F`): filtra por nome ou texto, sem diferenciar maiúsculas nem acentos. **Ver só este usuário** mostra só as
@@ -277,20 +335,32 @@ Mensagens e alertas das três plataformas num feed só, com abas **Tudo**, **Twi
 
 ### Configurações e tema
 
-Clique na bolinha de estado.
+Clique na bolinha de estado. **Toda seção recolhe** (clique no título); **Abrir tudo** e **Recolher tudo** ficam no alto. Os recursos opcionais vêm
+desligados e as opções de cada um só aparecem depois de ligar o interruptor.
 
 <p align="center">
-  <img src="docs/imagens/configuracoes.png" alt="Tela de configurações do LiveHelm" width="340">
+  <img src="docs/imagens/configuracoes.png" alt="Tela de configurações com todas as seções recolhidas" width="340">
+  <img src="docs/imagens/verificar.png" alt="O resultado do Verificar configuração, com tudo certo" width="340">
 </p>
 
+- **Verificar configuração** (botão no alto): confere tudo o que você ligou (as ações do Streamer.bot com o nome exato e a versão do código delas, as
+  plataformas conectadas, o OBS e o microfone) e mostra ✓, ! ou ✕ com o que fazer em cada caso.
 - **Aparência:** 7 cores de destaque e 5 fundos (Grafite, Preto, Azul-noite, Vinho e Floresta). A mudança é na hora.
 - **Streamer.bot:** endereço e senha do servidor WebSocket, com **Salvar e reconectar**.
 - **OBS:** endereço e senha do servidor WebSocket do OBS, com **Salvar e testar**, que mostra o tempo atual da live.
 - **Marcação de momentos:** título de clipe e pasta dos arquivos.
-- **Alertas no chat:** uma caixa por tipo de alerta (seguidor, sub, Bits, raid, resgate de pontos, anúncio, banimento...) para
+- **Alertas no chat:** uma caixa por tipo de alerta (seguidor, sub, Bits, raid, resgate de pontos, doação do LivePix, anúncio, banimento...) para
   decidir se ele aparece na aba **Tudo** e nas abas de plataforma. A aba **Alertas** mostra todos, sempre. As escolhas valem na
   hora, e **Voltar ao padrão** desfaz tudo.
-- **YouTube:** a categoria da transmissão que vai junto do título (padrão Gaming; vazio não mexe nela).
+- **Abas do chat:** liga as abas **Resgates** e **AutoMod**.
+- **YouTube:** as regras que escolhem a categoria do YouTube conforme a live (palavras de um lado, categoria escolhida numa lista do outro; qualquer jogo
+  vai para Gaming) e o interruptor de **tags e descrição do YouTube** no painel Tags.
+- **Predefinições de live**, **Modos do chat (Twitch)** e **Clipe da Twitch:** um interruptor para cada painel ou botão; os modos guardam os segundos do
+  modo lento e os minutos do só seguidores, e o clipe, a duração.
+- **Mudo do microfone:** liga o botão do microfone, escolhe a entrada do OBS (**Listar as entradas do OBS** ajuda) e o aviso de voz no mudo, com o botão
+  **Testar o aviso**, que mostra até onde chega a sua voz.
+- **Links das redes:** liga o botão e tem um campo para o endereço de cada rede (Twitch, YouTube, Kick, TikTok, Instagram, Discord, X, GitHub, LivePix e
+  um site). Pode digitar sem `https://`; um endereço que não serve fica com um aviso e não aparece.
 - **Saúde do OBS** e **Painel de Multistream:** um interruptor para cada um (a saúde vem ligada e o multistream, desligado). O dock também
   avisa aqui quando o seu canal da Twitch ainda não é afiliado nem parceiro: sem isso a Twitch não tem pontos do canal, e por isso nem
   resgates nem alertas deles.
@@ -299,7 +369,7 @@ Clique na bolinha de estado.
 
 <p align="center">
   <img src="docs/imagens/configuracoes-alertas.png" alt="A seção Alertas no chat, nas configurações" width="340">
-  <img src="docs/imagens/configuracoes-extras.png" alt="As seções YouTube, Saúde do OBS, Painel de Multistream e Aviso de anúncio" width="340">
+  <img src="docs/imagens/configuracoes-extras.png" alt="As seções YouTube, com as regras de categoria, e Mudo do microfone abertas" width="340">
 </p>
 
 O dock é pensado para ficar **estreito**: ele aguenta ser a coluna ao lado do preview do OBS, com o chat ocupando o que sobrar.
@@ -313,15 +383,22 @@ O dock é pensado para ficar **estreito**: ele aguenta ser a coluna ao lado do p
 | Título da live | ✓ | ✓ | ✓ |
 | Categoria (o jogo) | ✓ | ✓ | — (só as fixas, como Gaming) |
 | Ler o título e a categoria atuais | ✓ | — | só o título |
-| Tags (ler e editar) | ✓ | — | — |
+| Tags (ler e editar) | ✓ | — | ✓ (opcional) |
 | Apagar mensagem | ✓ | ✓ | — |
 | Silenciar e banir | ✓ | ✓ | ✓ |
 | Desfazer silêncio e banimento | ✓ | ✓ | — |
 | Limpar o chat (`/limpar`) | ✓ | — | — |
+| Responder a uma mensagem | ✓ | ✓ | com @nome |
+| Ver perfil (dados do chat) | ✓ | ✓ | ✓ |
+| Perfil com idade da conta, seguidor, sub, mod e VIP | ✓ | — | — |
+| Modos do chat e modo escudo | ✓ | — | — |
+| Criar clipe | ✓ | — | — |
 | Criar e controlar enquetes e previsões | ✓ | — | — |
 | Ver resgates de pontos no chat | ✓ | ✓ | — |
+| Cumprir e reembolsar resgates (aba Resgates) | ✓ | — | — |
 | Aviso de anúncio, com adiamento | ✓ | — | — |
 | Ver e liberar mensagens retidas pelo AutoMod | ✓ | — | — |
+| Descrição da live | — | — | ✓ (opcional) |
 | Tempo de live e espectadores | ✓ | ✓ | ✓ |
 
 Os "—" são limites das plataformas ou do Streamer.bot 1.0.7, não do LiveHelm: onde a plataforma ou o Streamer.bot não oferece o
@@ -330,7 +407,8 @@ recurso, o dock deixa o botão desligado ou ignora a plataforma.
 ## Configuração
 
 - **Pela tela de configurações** (bolinha de estado): endereço e senha do Streamer.bot e do OBS, tema, momentos, os alertas que
-  aparecem no chat e o aviso de anúncio. Tudo fica guardado no armazenamento do navegador do dock, dentro do OBS.
+  aparecem no chat, as regras do YouTube, os recursos opcionais e o aviso de anúncio (veja [Configurações e tema](#configurações-e-tema)). Tudo fica
+  guardado no armazenamento do navegador do dock, dentro do OBS.
 - **Valores de partida:** [`src/config.js`](src/config.js) tem o endereço e a senha padrão do Streamer.bot (`ws://127.0.0.1:8080`) e do
   OBS (`ws://127.0.0.1:4455`). As senhas vêm **vazias**. Se você gerar o seu próprio build, não coloque senhas reais no arquivo
   se for publicá-lo em algum lugar.
@@ -365,12 +443,21 @@ recurso, o dock deixa o botão desligado ou ignora a plataforma.
   gerenciar anúncios na conta da Twitch.
 - **YouTube:** o Streamer.bot só controla uma transmissão que ele está monitorando (a live precisa estar criada e o YouTube conectado
   nele). Sem o código novo de `Painel: YouTube`, o dock não consegue saber se o título mudou e o aviso diz isso. O título tem as
-  regras do YouTube (sem `<` e `>`, até 100 caracteres) e a categoria é uma da lista fixa dele.
-- **AutoMod e categoria vazia:** o Permitir e Negar do AutoMod segue a documentação do Streamer.bot (os campos exatos do evento ainda
-  não foram vistos com dados reais), (o **Sem categoria** da Twitch já foi testado e funciona).
+  regras do YouTube (sem `<` e `>`, até 100 caracteres) e a categoria é uma da lista fixa dele. Depois que a live termina (vira vídeo), o dock não mexe
+  mais nela: o pedido fica guardado para a próxima live.
+- **Categoria do YouTube:** o Streamer.bot já recusou trocar a categoria nos testes, até para "Gaming". O código tenta outros nomes e, por fim, o método
+  que manda título, descrição e categoria juntos, mas esse caminho ainda não foi testado numa live real; se a categoria continuar recusada, troque no
+  YouTube Studio.
+- **AutoMod:** o Permitir e Negar segue a documentação do Streamer.bot (os campos exatos do evento ainda não foram vistos com dados reais). O
+  **Sem categoria** da Twitch já foi testado e funciona.
+- **Cumprir e reembolsar resgates:** a Twitch só deixa um aplicativo resolver os resgates das recompensas que ele mesmo criou. Uma recompensa criada no
+  painel da Twitch só se cumpre ou reembolsa lá; para resolver pelo LiveHelm, crie a recompensa dentro do Streamer.bot. Limpar a aba Resgates não tira
+  os pendentes da fila da Twitch.
+- **Modos do chat:** o Streamer.bot não avisa o modo atual do chat, então o painel mostra o que o dock enviou por último (um modo trocado pelo site da
+  Twitch não aparece).
 - **Multistream:** não existe iniciar ou parar um destino só; o plugin obs-multi-rtmp não tem API e todos os destinos têm o mesmo nome.
-- O dock não mostra avatares, e emotes de terceiros (7TV, BetterTTV, FrankerFaceZ) não são carregados: só os que a plataforma
-  entrega no evento.
+- O chat não mostra avatares (só o cartão do perfil da Twitch tem a foto), e emotes de terceiros (7TV, BetterTTV, FrankerFaceZ) não são carregados: só os
+  que a plataforma entrega no evento.
 - O instalador automático é só para **Windows** (o Streamer.bot também roda só nele). O dock em si é uma página e funciona em qualquer
   OBS pelo jeito manual.
 - O navegador embutido do OBS pode se comportar diferente do Chrome em detalhes: confira, por exemplo, se **Copiar mensagem**
@@ -404,16 +491,26 @@ src/tagsLista.js         Regras puras da lista de tags e a leitura das respostas
 src/titulos.js           Regras de título e categoria: título do YouTube e outras grafias de categoria (puro; testado)
 src/Emojis.jsx           Seletor de emojis do título (busca, abas, tom de pele); emojiBusca.js, emojiSuporte.js e emojisDados.js
 src/lives.js             Estado das lives (espectadores, início, saúde): puro e testado
-src/obsSaude.js          Leitura contínua do OBS (fps, CPU, rede), iniciar e parar a transmissão
+src/obsSaude.js          Leitura contínua do OBS (fps, CPU, rede, mudo do microfone), iniciar e parar a transmissão; useSaudeDoObs.js a liga no App
 src/SaudeDoObs.jsx       Linha de saúde do OBS; PainelMultistream.jsx tem os botões Iniciar e Parar lives; TempoDeLive.jsx o tempo
 src/Momentos.jsx         Marcação de momentos
 src/pastaClipes.js       Regra da pasta dos clipes (a mesma da ação C#; testada)
 src/Interacoes.jsx       Enquetes e previsões
+src/Predefinicoes.jsx    Predefinições de live; predefinicoes.js tem as regras puras (testado)
+src/ModosDoChat.jsx      Modos do chat da Twitch; comandosDeModo.js lê /emotes, /subs, /lento, /seguidores e /escudo (puro; testado)
 src/ChatPanel.jsx        Feed, abas, menu, moderação, busca e caixa de envio
+src/comandosDoChat.js    A lista dos comandos do campo do chat e onde cada um vale (puro; testado)
+src/FilaDeResgates.jsx   Aba Resgates (Cumprir, Reembolsar, Limpar tudo); resgates.js evita repetir o texto do resgate no chat
+src/PerfilCard.jsx       Cartão do perfil; perfil.js monta os dados e o link do perfil
+src/livepix.js           Alerta das doações do LivePix a partir do aviso da ação LivePix (puro; testado)
 src/alertas.js           Quais alertas entram em cada aba do chat e o catálogo de tipos de alerta (puro; testado)
 src/AvisoAnuncio.jsx     Pop-up do aviso de anúncio da Twitch (contagem, Adiar 5 min, Deixar rodar)
 src/anuncios.js          Regras puras do aviso de anúncio: quando mostrar, adiar, dispensar (testado)
-src/Configuracoes.jsx    Tela de configurações (tema, conexões, momentos, alertas no chat, aviso de anúncio)
+src/BotaoMic.jsx         Botão do microfone no alto; vozNoMudo.js decide o aviso de voz no mudo (puro; testado)
+src/Links.jsx            Botão e janelinha dos links das redes; links.js confere os endereços (puro; testado)
+src/YoutubeInfo.jsx      Tags e descrição do YouTube, dentro do painel Tags
+src/Configuracoes.jsx    Tela de configurações (seções recolhíveis e o Verificar configuração)
+src/verificar.js         Junta os fatos do Verificar configuração; verificacao.js monta as linhas ✓ ! ✕ (puro; testado)
 src/acoes.js             Pedidos de ações ao Streamer.bot (os nomes e argumentos que as ações C# leem)
 src/streamerbot.js       Conexão WebSocket (senha, reconexão) e conversão dos eventos em tipos do dock
 src/obs.js               Tempo da live pelo obs-websocket v5
@@ -436,8 +533,10 @@ docs/INSTRUCOES.md       Passo a passo de instalação e configuração
 - **Novo alerta ou evento:** acrescente o evento em `EVENTOS_ASSINADOS` e a conversão em `ALERTAS` (`src/streamerbot.js`), o rótulo
   em `ROTULO_DO_ALERTA` (`ChatPanel.jsx`) e o tipo em `TIPOS_DE_ALERTA` (`src/alertas.js`), para ele ganhar a caixa em
   **Configurações > Alertas no chat**. Ele só entra na aba **Tudo** por padrão se também estiver em `ALERTAS_NO_CHAT_GERAL`.
-- **Nova opção de configuração:** é uma seção nova em `configuracoes.js` (o padrão vale seção por seção) e um bloco em
-  `Configuracoes.jsx`.
+- **Nova opção de configuração:** é uma seção nova em `configuracoes.js` (o padrão vale seção por seção) e um bloco `<Secao>` em
+  `Configuracoes.jsx`, com o id em `SECOES` (é o que alimenta **Abrir tudo** e **Recolher tudo**). Se o recurso exige uma ação do Streamer.bot, ponha-a em
+  `acoesNecessarias` (`verificacao.js`) para o **Verificar configuração** cobrá-la.
+- **Novo comando do chat:** acrescente-o na lista de `comandosDoChat.js` (com as plataformas onde vale) e trate-o em `enviar` no `ChatPanel.jsx`.
 
 Mais regras para quem mexe no código estão no [`CLAUDE.md`](CLAUDE.md) (que também orienta assistentes de código).
 
